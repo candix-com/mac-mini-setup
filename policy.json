@@ -1,20 +1,45 @@
 {
+  "groups": {
+    "group:owner": ["you@candix.com"]
+  },
   "tagOwners": {
-    "tag:mini": ["you@candix.com"],
-    "tag:dashboard": ["you@candix.com"]
+    "tag:mini": ["group:owner"],
+    "tag:dashboard": ["group:owner"]
   },
   "postures": {
     "posture:mac": ["node:os == 'macos'"]
   },
   "grants": [
-    {"src": ["autogroup:member"], "dst": ["autogroup:member"], "ip": ["*"]},
-    {"src": ["autogroup:member"], "dst": ["autogroup:internet"], "ip": ["*"]},
-    {"src": ["you@candix.com"], "srcPosture": ["posture:mac"], "dst": ["tag:mini"], "ip": ["tcp:22"]},
-    {"src": ["tag:dashboard"], "dst": ["tag:mini"], "ip": ["tcp:22"]}
+    { "src": ["autogroup:member"], "dst": ["autogroup:member"], "ip": ["*"] },
+    { "src": ["autogroup:member"], "dst": ["autogroup:internet"], "ip": ["*"] },
+    {
+      "src": ["group:owner"],
+      "srcPosture": ["posture:mac"],
+      "dst": ["tag:mini"],
+      "ip": ["tcp:22"]
+    },
+    { "src": ["tag:dashboard"], "dst": ["tag:mini"], "ip": ["tcp:22"] }
   ],
   "ssh": [
-    {"action": "accept", "src": ["you@candix.com"], "srcPosture": ["posture:mac"], "dst": ["tag:mini"], "users": ["dev"]},
-    {"action": "check", "src": ["you@candix.com"], "srcPosture": ["posture:mac"], "dst": ["tag:mini"], "users": ["admin"]},
-    {"action": "accept", "src": ["tag:dashboard"], "dst": ["tag:mini"], "users": ["stats"]}
+    {
+      "action": "accept",
+      "src": ["group:owner"],
+      "srcPosture": ["posture:mac"],
+      "dst": ["tag:mini"],
+      "users": ["dev"]
+    },
+    {
+      "action": "check",
+      "src": ["group:owner"],
+      "srcPosture": ["posture:mac"],
+      "dst": ["tag:mini"],
+      "users": ["admin"]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:dashboard"],
+      "dst": ["tag:mini"],
+      "users": ["stats"]
+    }
   ]
 }

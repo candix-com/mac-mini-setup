@@ -1,113 +1,100 @@
 #!/bin/bash
-# Sets up one Mac mini: users, FileVault, settings, Tailscale, tools, GitHub and the dashboard.
-# Run it at the Mac mini, logged in as `admin`, in Terminal:
-#   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/setup.sh)"
-# It asks for the machine number and the passwords, and opens the Tailscale and GitHub sign-ins. Safe to run again.
+# Sets up one Mac mini: users, settings, Tailscale, tools, GitHub and the dashboard.
+# Run it at the Mac mini, as admin, in Terminal (README.md, step 3). A second run skips what is already done.
 set -euo pipefail
 
-REPO_RAW="${REPO_RAW:-https://raw.githubusercontent.com/candix-com/mac-mini-setup/main}"
-HERE=""
-[[ -n ${BASH_SOURCE[0]:-} && -f ${BASH_SOURCE[0]} ]] && HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-
+fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/$1" -o "$2"; }
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
-ask() { local a; read -rp "$1 " a </dev/tty; printf '%s' "$a"; }
 
-# Copies one of this repo's files to $2: from next to this script, or from GitHub
-fetch() {
-  if [[ -n $HERE && -f $HERE/$1 ]]; then cp "$HERE/$1" "$2"
-  else curl -fsSL "$REPO_RAW/$1" -o "$2"; fi
-}
-
-[[ $(uname) == Darwin ]] || { echo "Run this on the Mac mini."; exit 1; }
-[[ $EUID -ne 0 ]] || { echo "Run it as admin, without sudo."; exit 1; }
-id -Gn | grep -qw admin || { echo "Run it as the admin user."; exit 1; }
+fdesetup isactive >/dev/null || { echo "Turn on FileVault first: System Settings > Privacy & Security > FileVault."; exit 1; }
+read -rp "Which Mac mini is this? Type its number (1 is the one with the screen): " number </dev/tty
+[[ $number =~ ^[1-9][0-9]*$ ]] || { echo "Type just a number, like 1."; exit 1; }
+name="mini-$number"
+tags="tag:mini"; [[ $number == 1 ]] && tags="tag:mini,tag:dashboard"
 cd /   # admin's home becomes private below, and dev's commands must not start in it
 
-N=$(ask "Which Mac mini is this? Type its number (1 is the one with the screen):")
-[[ $N =~ ^[1-9][0-9]*$ ]] || { echo "Type just a number, like 1."; exit 1; }
-NAME="mini-$N"
-TAGS="tag:mini"; [[ $N == 1 ]] && TAGS="tag:mini,tag:dashboard"
-
-step "Setting up $NAME. Type admin's password:"
+step "Setting up $name. Type admin's password:"
 sudo -v
 while true; do sudo -n true; sleep 50; kill -0 "$$" || exit; done 2>/dev/null &
-tmp=$(mktemp -d)
+temporary=$(mktemp -d)
 
-step "1/7 Name"
-sudo scutil --set ComputerName "$NAME"
-sudo scutil --set HostName "$NAME"
-sudo scutil --set LocalHostName "$NAME"
+step "1/6 Name"
+for key in ComputerName HostName LocalHostName; do sudo scutil --set "$key" "$name"; done
 
-step "2/7 Users dev and stats"
-for u in dev stats; do
-  if id "$u" >/dev/null 2>&1; then echo "$u already exists"; continue; fi
-  echo "New user $u: type a new password for $u (save it in your password manager), then admin's password."
-  sudo sysadminctl -addUser "$u" -fullName "$u" -password - -adminUser "$USER" -adminPassword - </dev/tty
-done
+step "2/6 Users"
+# dev runs the agents and only logs in over Tailscale SSH. Its password is random and never shown,
+# and it gets no secure token, so it can neither log in at the screen nor unlock FileVault.
+id dev >/dev/null 2>&1 || sudo sysadminctl -addUser dev -fullName dev -password "$(openssl rand -base64 30)"
+if [[ $number == 1 ]]; then
+  # On mini-1, stats logs in at the screen to show the dashboard, and unlocks FileVault after a power cut
+  if ! id stats >/dev/null 2>&1; then
+    echo "User stats: type a new password for it (save it in your password manager), then admin's password."
+    sudo sysadminctl -addUser stats -fullName stats -password - -adminUser "$USER" -adminPassword - </dev/tty
+  fi
+  if ! sudo fdesetup list | grep -q '^stats,'; then
+    echo "FileVault for stats: if it asks for a user name, type admin. Then type the passwords it asks for."
+    sudo fdesetup add -usertoadd stats </dev/tty
+  fi
+else
+  id stats >/dev/null 2>&1 || sudo sysadminctl -addUser stats -fullName stats -password "$(openssl rand -base64 30)"
+fi
 sudo createhomedir -c >/dev/null
 # macOS lets users read each other's home folders by default
 sudo chmod 700 "/Users/$USER" /Users/dev /Users/stats
 
-step "3/7 FileVault"
-if fdesetup isactive >/dev/null; then
-  echo "Already on."
-else
-  echo "Save the recovery key it prints in your password manager."
-  sudo fdesetup enable -user "$USER" </dev/tty
-fi
-# stats must be able to unlock mini-1 after a power cut, so the dashboard comes back
-if ! sudo fdesetup list | grep -q '^stats,'; then
-  echo "Adding stats to FileVault: if it asks for a user name, type admin. Then type the password it names."
-  sudo fdesetup add -usertoadd stats </dev/tty
-fi
-
-step "4/7 Settings"
+step "3/6 Settings"
 sudo pmset -a sleep 0 displaysleep 0 autorestart 1
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
-# Remote Login off: Tailscale is the only way in
-sudo launchctl disable system/com.openssh.sshd
-sudo launchctl bootout system/com.openssh.sshd 2>/dev/null || true
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool true
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate ConfigDataInstall -bool true
+# macOS updates restart the Mac, so you install them yourself (README.md, Daily use)
 sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
 
-step "5/7 Homebrew, tools and Tailscale"
+step "4/6 Homebrew, tools and Tailscale"
 [[ -x /opt/homebrew/bin/brew ]] ||
   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 grep -qs 'brew shellenv' ~/.zprofile || echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew install tailscale tmux gh uv node pnpm
-brew pin tailscale   # updated by hand at the tower, so a bad update can't lock you out
+brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
   echo "A Tailscale tab opens. Log in with your account, then click Connect."
-  sudo tailscale up --ssh --hostname="$NAME" --advertise-tags="$TAGS" 2>&1 | while IFS= read -r line; do
+  sudo tailscale up --ssh --hostname="$name" --advertise-tags="$tags" 2>&1 | while IFS= read -r line; do
     echo "$line"
     [[ $line =~ (https://login\.tailscale\.com/[^[:space:]]+) ]] && open "${BASH_REMATCH[1]}" || true
   done
 fi
 
-step "6/7 Dashboard"
-fetch mini-stats "$tmp/mini-stats"
+step "5/6 Dashboard"
+fetch mini-stats "$temporary/mini-stats"
 sudo mkdir -p /usr/local/bin
-sudo install -o root -g wheel -m 755 "$tmp/mini-stats" /usr/local/bin/mini-stats
-sudo install -d -o dev -g staff -m 755 /Users/Shared/claude-usage
-if [[ $N == 1 ]]; then
-  fetch machines-dashboard.sh "$tmp/dashboard"
-  sudo install -o root -g wheel -m 755 "$tmp/dashboard" /usr/local/bin/machines-dashboard
-  printf '#!/bin/zsh\n/usr/local/bin/machines-dashboard\n' > "$tmp/dashboard.command"
-  sudo install -o stats -g staff -m 755 "$tmp/dashboard.command" /Users/stats/dashboard.command
-  sudo -u stats defaults -currentHost write com.apple.screensaver idleTime -int 0
+sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini-stats
+# dev saves its Claude usage here for mini-stats. Made as dev, so root never writes through a path dev controls.
+sudo -u dev mkdir -p -m 755 /Users/Shared/claude-usage
+if [[ $number == 1 ]]; then
+  fetch machines-dashboard.sh "$temporary/dashboard"
+  sudo install -o root -g wheel -m 755 "$temporary/dashboard" /usr/local/bin/machines-dashboard
+  # Opens the dashboard in Terminal when stats logs in
+  sudo -u stats -H mkdir -p /Users/stats/Library/LaunchAgents
+  sudo -u stats -H tee /Users/stats/Library/LaunchAgents/com.candix.dashboard.plist >/dev/null <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.candix.dashboard</string>
+  <key>ProgramArguments</key>
+  <array><string>/usr/bin/open</string><string>-a</string><string>Terminal</string><string>/usr/local/bin/machines-dashboard</string></array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+EOF
+  sudo -u stats -H defaults -currentHost write com.apple.screensaver idleTime -int 0
 else
   # On the other Mac minis, a login as stats can only print the numbers
   sudo dscl . -create /Users/stats UserShell /usr/local/bin/mini-stats
 fi
 
-step "7/7 dev: shell, Claude Code and GitHub"
-fetch claude-usage-statusline.sh "$tmp/statusline"
-sudo install -d -o dev -g staff -m 700 /Users/dev/.claude
-sudo install -o dev -g staff -m 755 "$tmp/statusline" /Users/dev/.claude/claude-usage-statusline.sh
+step "6/6 dev: shell, Claude Code and GitHub"
 sudo -u dev -H /bin/bash -s <<'EOF'
 set -euo pipefail
 cd ~
@@ -123,24 +110,28 @@ mkdir -p ~/code
 grep -qs 'umask 077' ~/.zshenv || echo 'umask 077' >> ~/.zshenv
 [[ -x ~/.local/bin/claude ]] || curl -fsSL https://claude.ai/install.sh | bash
 grep -qs '.local/bin' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+mkdir -p ~/.claude
+curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.claude/claude-usage-statusline.sh
+chmod 755 ~/.claude/claude-usage-statusline.sh
 [[ -f ~/.claude/settings.json ]] ||
   printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > ~/.claude/settings.json
 EOF
 
 gh() { sudo -u dev -H /opt/homebrew/bin/gh "$@"; }
 if ! gh auth status >/dev/null 2>&1; then
-  echo "GitHub login, with Owen's account."
-  # The token goes in a file, not the Keychain, which is locked when you connect over SSH
+  echo "GitHub login, with Owen's account (owreed)."
+  # The token goes in a file: dev's Keychain is locked over SSH
   gh auth login --insecure-storage </dev/tty
 fi
-# Commits show the GitHub account's name and its private noreply email
-sudo -u dev -H git config --global user.name "$(gh api user --jq '.name // .login')"
-sudo -u dev -H git config --global user.email "$(gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"')"
+# Commits show the account's name and its private noreply email
+{ read -r git_name; read -r git_email; } < <(gh api user --jq '(.name // .login), "\(.id)+\(.login)@users.noreply.github.com"')
+sudo -u dev -H git config --global user.name "$git_name"
+sudo -u dev -H git config --global user.email "$git_email"
 
-rm -rf "$tmp"
+rm -rf "$temporary"
 step "Done."
-if [[ $N == 1 ]]; then
-  echo "Next: step 4 of the guide (the dashboard)."
+if [[ $number == 1 ]]; then
+  echo "Next: Apple menu > Log Out admin, then step 4 of the guide."
 else
-  echo "Next: step 5 of the guide (your laptop)."
+  echo "Next: Apple menu > Log Out admin, unplug the screen, keyboard and mouse, then step 5 of the guide."
 fi

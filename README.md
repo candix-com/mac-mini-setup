@@ -1,37 +1,23 @@
 # Mac mini setup
 
-Steps 2 to 5 for each Mac mini, starting with mini-1. Why it's set up this way: [NOTES.md](NOTES.md).
+Step 1 once. Steps 2 to 5 on each Mac mini, mini-1 first. Then [GITHUB.md](GITHUB.md) once per repo the agents work on. Why it's set up this way: [NOTES.md](NOTES.md).
 
-## 1. Tailscale policy (before the first Mac mini only)
+## 1. Tailscale policy
 
 On your laptop:
 
 1. Open https://login.tailscale.com/admin/acls/file.
-2. Copy all of [policy.json](policy.json).
-3. If you never changed your policy: select everything in the editor, delete it, paste. Otherwise, ask Claude to merge the two.
-4. Replace every `you@candix.com` with the email you log in to Tailscale with.
-5. Click **Save**.
+2. If you never changed your policy, replace all of it with [policy.json](policy.json). Otherwise, ask Claude to add the `groups`, `tagOwners`, `postures`, `grants` and `ssh` entries of policy.json to your policy without removing any of yours, and paste the result.
+3. In `group:owner`, replace `you@candix.com` with the email you log in to Tailscale with.
+4. Click **Save**.
 
 ## 2. macOS
 
-1. Plug in the Ethernet cable (if you have it), a screen, a keyboard and a mouse. Plug in the power last.
-2. Answer the setup screens:
-
-| Screen | Do this |
-| --- | --- |
-| Language, Country or Region, Time Zone | yours |
-| Wi-Fi | your network |
-| Transfer Your Data, Accessibility | **Not Now** |
-| Data & Privacy | **Continue** |
-| Sign In with Your Apple Account | **Set Up Later**, then **Skip** |
-| Terms and Conditions | **Agree**, then **Agree** |
-| Create a Mac Account | Full name `admin`, Account name `admin`, a new password. Save it in your password manager. |
-| Location Services | off, then **Don't Use** |
-| Analytics, Siri | untick everything |
-| Screen Time | **Set Up Later** |
-| FileVault | leave **Turn on FileVault** ticked. If asked, pick **Create a recovery key and do not use my iCloud account**. Save the recovery key in your password manager. |
-| Update Mac Automatically | **Only Download Automatically** |
-| anything else | **Not Now**, **Skip** or **Set Up Later** |
+1. Plug in the Ethernet cable, a screen, a keyboard and a mouse, then the power.
+2. On the setup screens:
+   - Create the account with full name `admin` and account name `admin`. Save its password in your password manager.
+   - Turn FileVault on, with a recovery key. Save the key in your password manager.
+   - Skip everything else.
 
 ## 3. Run the script
 
@@ -40,76 +26,49 @@ On your laptop:
    ```bash
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/setup.sh)"
    ```
-3. Along the way (about 15 minutes):
-   1. Type the Mac mini's number: `1`, `2` or `3`. mini-1 is the one with the screen.
+3. Along the way:
+   1. Type the Mac mini's number: `1` for the one with the screen, then `2`, `3`, and so on.
    2. Type admin's password.
-   3. User `dev`: type a new password, then admin's password. Save dev's password in your password manager.
-   4. User `stats`: same.
-   5. FileVault for `stats`: if it asks for a user name, type `admin`. Then type the password it names.
-   6. A Tailscale tab opens: log in with your account, click **Connect**.
-   7. GitHub: answer **GitHub.com**, **HTTPS**, **Yes**, **Login with a web browser**. Copy the code it shows, press Enter, log in as Owen, paste the code, click **Authorize**. If no browser opens, open https://github.com/login/device yourself.
-4. It ends with **Done** and tells you the next step.
+   3. mini-1 only: type a new password for `stats`, then admin's password. Save stats' password in your password manager. If FileVault then asks for a user name, type `admin`, then the passwords it asks for.
+   4. A Tailscale tab opens: log in with your account, click **Connect**.
+   5. GitHub: answer **GitHub.com**, **HTTPS**, **Yes**, **Login with a web browser**. Copy the code it shows, press Enter, log in to GitHub as Owen (`owreed`), paste the code, click **Authorize**. If no browser opens, open https://github.com/login/device.
+4. When it says **Done**: Apple menu → **Log Out admin**. On every Mac mini but mini-1, unplug the screen, keyboard and mouse.
 
-## 4. The dashboard (mini-1 only)
+## 4. Dashboard (mini-1 only)
 
-1. Apple menu → **Log Out admin**.
-2. Log in as `stats`.
-3. **System Settings** → **General** → **Login Items & Extensions** → under **Open at Login**, click **+**.
-4. Press Cmd-Shift-H, select `dashboard.command`, click **Open**.
-5. Close System Settings. In Finder, press Cmd-Shift-H and double-click `dashboard.command`.
-6. **Terminal** menu → **Settings** → **Profiles** → **Text** → **Font: Change** → size 24. Close the windows.
-7. Plug the screen's USB cable into the power strip, not into the Mac mini.
-8. Unplug the keyboard and mouse.
+1. Log in as `stats`. The dashboard opens in Terminal.
+2. **Terminal** menu → **Settings** → **Profiles** → **Text** → **Font: Change** → size 24. Close the windows.
+3. Plug the screen's USB cable into the power strip, not into the Mac mini.
+4. Unplug the keyboard and mouse.
 
 ## 5. Your laptop
 
-1. On the Mac mini (mini-2 and mini-3): Apple menu → **Log Out admin**, then unplug the screen, keyboard and mouse.
-2. On your laptop, the Tailscale app must be on and logged in with your account.
-3. In Terminal:
+1. Turn on the Tailscale app, logged in with your account.
+2. In Terminal:
    ```bash
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/laptop.sh)"
    ```
-4. Type the Mac mini's number.
-5. Claude opens to log in: click the link, approve it in the browser, paste the code back, then type `/exit`.
+3. Type the Mac mini's number.
+4. Claude opens to log in: click the link, approve it in the browser, paste the code back, then type `/exit`.
 
-Next Mac mini: back to step 2.
-
-## 6. GitHub (once per repo the agents work on)
-
-In the repo on github.com:
-
-1. **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**:
-   - Ruleset name: `main`
-   - Enforcement status: **Active**
-   - Target branches → **Add target** → **Include default branch**
-   - tick **Restrict deletions** and **Block force pushes**
-   - tick **Require a pull request before merging**, set **Required approvals** to 1, tick **Require approval of the most recent reviewable push**
-   - click **Create**
-2. **Settings** → **Environments** → **New environment** → name `production` → **Configure environment**:
-   - **Deployment branches and tags** → **Selected branches and tags** → **Add deployment branch or tag rule** → `main`
-   - add every secret under **Environment secrets**
-3. **Settings** → **Secrets and variables** → **Actions**: delete everything under **Repository secrets**.
-4. In `.github/workflows`, add `environment: production` to every job that uses a secret.
-5. **Settings** → **Actions** → **General** → **Workflow permissions**: pick **Read repository contents and packages permissions**, untick **Allow GitHub Actions to create and approve pull requests**, click **Save**.
-6. If a workflow runs on tags: **Rulesets** → **New ruleset** → **New tag ruleset** → target **Include all tags**, tick **Restrict creations**, **Restrict updates** and **Restrict deletions**, add a team Owen is not in to the bypass list, click **Create**.
-7. If a workflow uses `pull_request_target` or `workflow_run`, ask Claude to check it.
+Next Mac mini: step 2.
 
 ## Daily use
 
-| Do this | How |
-| --- | --- |
-| Open a Mac mini's terminal (all tabs still there) | `mini-1`, `mini-2` or `mini-3` |
-| Start Claude | `claude` |
-| New tab | `Ctrl-b` then `c` |
-| Next / previous tab | `Ctrl-b` then `n` / `p` |
-| List all tabs, jump to one | `Ctrl-b` then `w` |
-| Close a tab | `exit` |
-| Leave, keeping everything running | close the window |
-| Copy text | `Cmd-R`, select, `Cmd-C`, then `Cmd-R` again |
-| Update the tools (monthly) | `ssh admin@mini-1`, then `brew upgrade` |
-| Update macOS | `ssh admin@mini-1`, `softwareupdate -l`, then `sudo softwareupdate -i 'LABEL' -R --user admin` with the label it showed |
-| Restart | `ssh admin@mini-1`, then `sudo fdesetup authrestart` |
-| After a power cut | at the Mac mini, plug in a keyboard, log in as `admin` (`stats` on mini-1). Never `dev`. |
-| Update Tailscale (after a Tailscale security bulletin) | at the Mac mini, as `admin`: `brew unpin tailscale && brew upgrade tailscale && sudo brew services restart tailscale && brew pin tailscale` |
+| Do this                                               | How                                                                                                                                                                         |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open a Mac mini's terminal (all tabs still there)     | `mini-<n>`                                                                                                                                                                  |
+| Start Claude                                          | `claude`                                                                                                                                                                    |
+| New tab                                               | `Ctrl-b` then `c`                                                                                                                                                           |
+| Next / previous tab                                   | `Ctrl-b` then `n` / `p`                                                                                                                                                     |
+| List all tabs, jump to one                            | `Ctrl-b` then `w`                                                                                                                                                           |
+| Close a tab                                           | `exit`                                                                                                                                                                      |
+| Leave, keeping everything running                     | close the window                                                                                                                                                            |
+| Copy text                                             | `Cmd-R`, select, `Cmd-C`, then `Cmd-R` again to get scrolling back                                                                                                          |
+| Update the tools, monthly, on each Mac mini           | `ssh admin@mini-<n>`, then `brew upgrade`                                                                                                                                   |
+| Update macOS on a Mac mini                            | `ssh admin@mini-<n>`, `softwareupdate -l`, then `sudo softwareupdate -i 'LABEL' -R --user admin` with the label it showed                                                   |
+| Restart a Mac mini                                    | `ssh admin@mini-<n>`, then `sudo fdesetup authrestart`                                                                                                                      |
+| After a power cut                                     | Each Mac mini waits for a FileVault password. mini-1: log in as `stats`. The others: plug in a screen and keyboard, log in as `admin`, then Apple menu → **Log Out admin**. |
+| Update Tailscale, after a Tailscale security bulletin | At the Mac mini, logged in as `admin`, in Terminal: `brew unpin tailscale && brew upgrade tailscale && sudo brew services restart tailscale && brew pin tailscale`          |
 
-`ssh admin@…` may show a Tailscale link: open it and log in.
+If `ssh admin@…` shows a Tailscale link, open it and log in.

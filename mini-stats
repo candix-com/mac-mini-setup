@@ -1,10 +1,6 @@
 #!/bin/bash
-# Prints this Mac's CPU idle %, memory free %, Claude 5-hour % and Claude weekly %, for machines-dashboard.sh.
-#
-# Install as admin:  sudo install -o root -g wheel -m 755 ~/mini-stats /usr/local/bin/mini-stats
-# On every Mac mini except mini-1, also make it the `stats` user's only shell, so a login as `stats`
-# can print these numbers and nothing else:
-#   sudo dscl . -create /Users/stats UserShell /usr/local/bin/mini-stats
+# Prints this Mac's CPU idle %, memory free %, Claude 5-hour % and Claude weekly %, for machines-dashboard.
+# setup.sh installs it, and makes it the stats user's only shell on every Mac mini but mini-1.
 idle=$(/usr/bin/top -l 2 -n 0 -s 1 | /usr/bin/awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
 free=$(/usr/bin/memory_pressure -Q | /usr/bin/awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')
 limits=$(/usr/bin/jq -r '[.five_hour, .seven_day]

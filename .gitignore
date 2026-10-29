@@ -1,0 +1,14 @@
+# Global
+*
+!.gitignore
+
+# Files
+!/claude-usage-statusline.sh
+!/GITHUB.md
+!/laptop.sh
+!/machines-dashboard.sh
+!/mini-stats
+!/NOTES.md
+!/policy.json
+!/README.md
+!/setup.sh
