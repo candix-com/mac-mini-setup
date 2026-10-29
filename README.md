@@ -29,7 +29,7 @@ On your laptop:
 | Location Services | off, then **Don't Use** |
 | Analytics, Siri | untick everything |
 | Screen Time | **Set Up Later** |
-| FileVault | untick it |
+| FileVault | leave **Turn on FileVault** ticked. If asked, pick **Create a recovery key and do not use my iCloud account**. Save the recovery key in your password manager. |
 | Update Mac Automatically | **Only Download Automatically** |
 | anything else | **Not Now**, **Skip** or **Set Up Later** |
 
@@ -45,10 +45,9 @@ On your laptop:
    2. Type admin's password.
    3. User `dev`: type a new password, then admin's password. Save dev's password in your password manager.
    4. User `stats`: same.
-   5. FileVault: type admin's password. Save the recovery key it shows in your password manager.
-   6. FileVault for `stats`: if it asks for a user name, type `admin`. Then type the password it names.
-   7. A Tailscale tab opens: log in with your account, click **Connect**.
-   8. GitHub: answer **GitHub.com**, **HTTPS**, **Yes**, **Login with a web browser**. Copy the code it shows, press Enter, log in as Owen, paste the code, click **Authorize**. If no browser opens, open https://github.com/login/device yourself.
+   5. FileVault for `stats`: if it asks for a user name, type `admin`. Then type the password it names.
+   6. A Tailscale tab opens: log in with your account, click **Connect**.
+   7. GitHub: answer **GitHub.com**, **HTTPS**, **Yes**, **Login with a web browser**. Copy the code it shows, press Enter, log in as Owen, paste the code, click **Authorize**. If no browser opens, open https://github.com/login/device yourself.
 4. It ends with **Done** and tells you the next step.
 
 ## 4. The dashboard (mini-1 only)
