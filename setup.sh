@@ -2,7 +2,7 @@
 # Sets up one Mac mini: users, FileVault, settings, Tailscale, tools, GitHub and the dashboard.
 # Run it at the Mac mini, logged in as `admin`, in Terminal:
 #   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/setup.sh)"
-# It asks for the machine number and the passwords it needs. Safe to run again.
+# It asks for the machine number and the passwords, and opens the Tailscale and GitHub sign-ins. Safe to run again.
 set -euo pipefail
 
 REPO_RAW="${REPO_RAW:-https://raw.githubusercontent.com/candix-com/mac-mini-setup/main}"
@@ -41,7 +41,7 @@ sudo scutil --set LocalHostName "$NAME"
 step "2/7 Users dev and stats"
 for u in dev stats; do
   if id "$u" >/dev/null 2>&1; then echo "$u already exists"; continue; fi
-  echo "New user $u: type a long random password for it (save it in your password manager), then admin's password."
+  echo "New user $u: type a new password for $u (save it in your password manager), then admin's password."
   sudo sysadminctl -addUser "$u" -fullName "$u" -password - -adminUser "$USER" -adminPassword - </dev/tty
 done
 sudo createhomedir -c >/dev/null
@@ -56,7 +56,10 @@ else
   sudo fdesetup enable -user "$USER" </dev/tty
 fi
 # stats must be able to unlock mini-1 after a power cut, so the dashboard comes back
-sudo fdesetup list | grep -q '^stats,' || sudo fdesetup add -usertoadd stats </dev/tty
+if ! sudo fdesetup list | grep -q '^stats,'; then
+  echo "Adding stats to FileVault: if it asks for a user name, type admin. Then type the password it names."
+  sudo fdesetup add -usertoadd stats </dev/tty
+fi
 
 step "4/7 Settings"
 sudo pmset -a sleep 0 displaysleep 0 autorestart 1
@@ -78,7 +81,7 @@ brew install tailscale tmux gh uv node pnpm
 brew pin tailscale   # updated by hand at the tower, so a bad update can't lock you out
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
-  echo "Approve this Mac in the browser tab that opens."
+  echo "A Tailscale tab opens. Log in with your account, then click Connect."
   sudo tailscale up --ssh --hostname="$NAME" --advertise-tags="$TAGS" 2>&1 | while IFS= read -r line; do
     echo "$line"
     [[ $line =~ (https://login\.tailscale\.com/[^[:space:]]+) ]] && open "${BASH_REMATCH[1]}" || true
@@ -124,25 +127,20 @@ grep -qs '.local/bin' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >>
   printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > ~/.claude/settings.json
 EOF
 
-if ! sudo -u dev -H /opt/homebrew/bin/gh auth status >/dev/null 2>&1; then
-  read -rsp "Paste this Mac mini's GitHub token (Enter to skip): " token </dev/tty; echo
-  if [[ -n $token ]]; then
-    git_name=$(ask "Name for commits [Owen Reed]:"); git_name=${git_name:-Owen Reed}
-    git_email=$(ask "Email for commits [owen@candix.com]:"); git_email=${git_email:-owen@candix.com}
-    printf '%s\n' "$token" | sudo -u dev -H /opt/homebrew/bin/gh auth login --with-token --insecure-storage
-    sudo -u dev -H /opt/homebrew/bin/gh auth setup-git
-    sudo -u dev -H git config --global user.name "$git_name"
-    sudo -u dev -H git config --global user.email "$git_email"
-  fi
-  unset token
+gh() { sudo -u dev -H /opt/homebrew/bin/gh "$@"; }
+if ! gh auth status >/dev/null 2>&1; then
+  echo "GitHub login, with Owen's account."
+  # The token goes in a file, not the Keychain, which is locked when you connect over SSH
+  gh auth login --insecure-storage </dev/tty
 fi
+# Commits show the GitHub account's name and its private noreply email
+sudo -u dev -H git config --global user.name "$(gh api user --jq '.name // .login')"
+sudo -u dev -H git config --global user.email "$(gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"')"
 
 rm -rf "$tmp"
-step "Done. Left to do:"
-echo "- Save the FileVault recovery key and the dev and stats passwords in your password manager."
-echo "- From your laptop: mini-$N, then claude to log in to Claude Code."
+step "Done."
 if [[ $N == 1 ]]; then
-  echo "- Log in here as stats, add dashboard.command to General > Login Items & Extensions, and make Terminal's font bigger."
-  echo "- Plug the screen's USB cable into the power strip, not the Mac, and unplug the keyboard."
+  echo "Next: step 4 of the guide (the dashboard)."
+else
+  echo "Next: step 5 of the guide (your laptop)."
 fi
-echo "- Log out of admin."
