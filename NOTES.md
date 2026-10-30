@@ -10,7 +10,7 @@
 - The dashboard lists every device tagged `tag:mini`, so a new Mac mini shows up on its own.
 - The dashboard screen connects to mini-1 by HDMI only and takes USB power from the power strip, so it can't act as a keyboard.
 - macOS updates restart the Mac, so you install them yourself, with `-R` or `fdesetup authrestart`, which unlock FileVault once on the way back up.
-- The agents push with a `gh` token for Owen's GitHub account. It has the `repo`, `read:org`, `gist`, `admin:ssh_signing_key` and `user:email` scopes, but not `workflow`, so it can't change workflow files. Each Mac mini signs its commits with its own key, so GitHub shows them Verified. The `main` ruleset ([GITHUB.md](GITHUB.md)) makes every change go through a pull request that someone else approves, and secrets reach only jobs on `main`.
+- The agents push with a `gh` token for Owen's GitHub account. It has the `repo`, `read:org`, `gist`, `admin:ssh_signing_key` and `user:email` scopes, but not `workflow`, so it can't change workflow files. Each Mac mini signs its commits with its own key, so GitHub shows them Verified. The org-wide ruleset ([GITHUB.md](GITHUB.md)) makes every change from Owen go through a pull request that you approve, and secrets reach only jobs on the default branch.
 - `ssh -a` keeps your laptop's SSH keys out of the Mac minis.
 - `umask 077` makes the files the agents create readable only by `dev`.
 - There are no backups. The code lives on GitHub.

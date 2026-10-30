@@ -1,6 +1,6 @@
 # Mac mini setup
 
-Step 1 once. Steps 2 to 5 on each Mac mini, mini-1 first. Then [GITHUB.md](GITHUB.md) once per repo the agents work on. Why it's set up this way: [NOTES.md](NOTES.md).
+Step 1 once. Steps 2 to 5 on each Mac mini, mini-1 first. Then [GITHUB.md](GITHUB.md) once for the org. Why it's set up this way: [NOTES.md](NOTES.md).
 
 ## 1. Tailscale policy
 
