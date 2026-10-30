@@ -41,14 +41,7 @@ fi
 # macOS lets users read each other's home folders by default
 sudo chmod 700 "/Users/$USER" /Users/dev /Users/stats
 
-step "3/6 Settings"
-sudo pmset -a sleep 0 displaysleep 0 autorestart 1
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
-# macOS updates restart the Mac, so you install them yourself (README.md, Daily use)
-sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
-
-step "4/6 Homebrew, tools and Tailscale"
+step "3/6 Homebrew, tools and Tailscale"
 if [[ ! -x /opt/homebrew/bin/brew ]]; then
   # Downloaded to a file first, so a failed download stops the script
   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$temporary/homebrew-install.sh"
@@ -67,7 +60,7 @@ if ! tailscale status >/dev/null 2>&1; then
   done
 fi
 
-step "5/6 Dashboard"
+step "4/6 Dashboard"
 fetch mini-stats "$temporary/mini-stats"
 sudo mkdir -p /usr/local/bin
 sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini-stats
@@ -96,7 +89,7 @@ else
   sudo dscl . -create /Users/stats UserShell /usr/local/bin/mini-stats
 fi
 
-step "6/6 dev: shell, Claude Code and GitHub"
+step "5/6 dev: shell, Claude Code and GitHub"
 sudo -u dev -H /bin/bash -s <<'EOF'
 set -euo pipefail
 cd ~
@@ -140,6 +133,14 @@ git config --global gpg.format ssh
 git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
 EOF
+
+# Last, because turning on the firewall cuts the internet for a few seconds
+step "6/6 Settings"
+sudo pmset -a sleep 0 displaysleep 0 autorestart 1
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
+# macOS updates restart the Mac, so you install them yourself (README.md, Daily use)
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
 
 rm -rf "$temporary"
 step "Done."
