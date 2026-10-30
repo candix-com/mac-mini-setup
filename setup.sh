@@ -38,7 +38,6 @@ if [[ $number == 1 ]]; then
 else
   id stats >/dev/null 2>&1 || sudo sysadminctl -addUser stats -fullName stats -password "$(openssl rand -base64 30)"
 fi
-sudo createhomedir -c >/dev/null
 # macOS lets users read each other's home folders by default
 sudo chmod 700 "/Users/$USER" /Users/dev /Users/stats
 
@@ -50,8 +49,11 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
 
 step "4/6 Homebrew, tools and Tailscale"
-[[ -x /opt/homebrew/bin/brew ]] ||
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+if [[ ! -x /opt/homebrew/bin/brew ]]; then
+  # Downloaded to a file first, so a failed download stops the script
+  curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$temporary/homebrew-install.sh"
+  NONINTERACTIVE=1 /bin/bash "$temporary/homebrew-install.sh"
+fi
 grep -qs 'brew shellenv' ~/.zprofile || echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew install tailscale tmux gh uv node pnpm
