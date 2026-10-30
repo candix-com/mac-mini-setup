@@ -24,19 +24,19 @@ for key in ComputerName HostName LocalHostName; do sudo scutil --set "$key" "$na
 step "2/6 Users"
 # dev runs the agents and only logs in over Tailscale SSH. Its password is random and never shown,
 # and it gets no secure token, so it can neither log in at the screen nor unlock FileVault.
-id dev >/dev/null 2>&1 || sudo sysadminctl -addUser dev -fullName dev -password "$(openssl rand -base64 30)"
+id dev >/dev/null 2>&1 || sudo sysadminctl -addUser dev -fullName Dev -password "$(openssl rand -base64 30)"
 if [[ $number == 1 ]]; then
   # On mini-1, stats logs in at the screen to show the dashboard, and unlocks FileVault after a power cut
   if ! id stats >/dev/null 2>&1; then
     echo "User stats: type a new password for it (save it in your password manager), then admin's password."
-    sudo sysadminctl -addUser stats -fullName stats -password - -adminUser "$USER" -adminPassword - </dev/tty
+    sudo sysadminctl -addUser stats -fullName Stats -password - -adminUser "$USER" -adminPassword - </dev/tty
   fi
   if ! sudo fdesetup list | grep -q '^stats,'; then
     echo "FileVault for stats: if it asks for a user name, type admin. Then type the passwords it asks for."
     sudo fdesetup add -usertoadd stats </dev/tty
   fi
 else
-  id stats >/dev/null 2>&1 || sudo sysadminctl -addUser stats -fullName stats -password "$(openssl rand -base64 30)"
+  id stats >/dev/null 2>&1 || sudo sysadminctl -addUser stats -fullName Stats -password "$(openssl rand -base64 30)"
 fi
 # macOS lets users read each other's home folders by default
 sudo chmod 700 "/Users/$USER" /Users/dev /Users/stats

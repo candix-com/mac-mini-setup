@@ -15,7 +15,7 @@ On your laptop:
 
 1. Plug in the Ethernet cable, a screen, a keyboard and a mouse, then the power.
 2. On the setup screens:
-   - Create the account with full name `admin` and account name `admin`. Save its password in your password manager.
+   - Create the account with full name `Admin` and account name `admin`. Save its password in your password manager.
    - Turn FileVault on, with a recovery key. Save the key in your password manager.
    - Skip everything else.
 
