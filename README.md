@@ -31,7 +31,7 @@ On your laptop:
    2. Type admin's password.
    3. mini-1 only: type a new password for `stats`, then admin's password. Save stats' password in your password manager. If FileVault then asks for a user name, type `admin`, then the passwords it asks for.
    4. A Tailscale tab opens: log in with your account, click **Connect**.
-   5. GitHub: answer **GitHub.com**, **HTTPS**, **Yes**, **Login with a web browser**. Copy the code it shows, press Enter, log in to GitHub as Owen (`owreed`), paste the code, click **Authorize**. If no browser opens, open https://github.com/login/device.
+   5. GitHub: copy the code it shows, press Enter, log in to GitHub as Owen (`owreed`), paste the code, click **Authorize**. If it asks to authenticate Git with your GitHub credentials, answer **Yes**. If no browser opens, open https://github.com/login/device.
 4. When it says **Done**: Apple menu → **Log Out admin**. On every Mac mini but mini-1, unplug the screen, keyboard and mouse.
 
 ## 4. Dashboard (mini-1 only)

@@ -119,16 +119,27 @@ chmod 755 ~/.claude/claude-usage-statusline.sh
   printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > ~/.claude/settings.json
 EOF
 
-gh() { sudo -u dev -H /opt/homebrew/bin/gh "$@"; }
-if ! gh auth status >/dev/null 2>&1; then
+if ! sudo -u dev -H /opt/homebrew/bin/gh auth status >/dev/null 2>&1; then
   echo "GitHub login, with Owen's account (owreed)."
   # The token goes in a file: dev's Keychain is locked over SSH
-  gh auth login --insecure-storage </dev/tty
+  sudo -u dev -H /opt/homebrew/bin/gh auth login -h github.com -p https -w -s admin:ssh_signing_key,user:email --insecure-storage </dev/tty
+  sudo -u dev -H /opt/homebrew/bin/gh auth setup-git
 fi
-# Commits show the account's name and its private noreply email
-{ read -r git_name; read -r git_email; } < <(gh api user --jq '(.name // .login), "\(.id)+\(.login)@users.noreply.github.com"')
-sudo -u dev -H git config --global user.name "$git_name"
-sudo -u dev -H git config --global user.email "$git_email"
+sudo -u dev -H /bin/bash -s <<'EOF'
+set -euo pipefail
+gh=/opt/homebrew/bin/gh
+email=$($gh api user/emails -q 'map(select(.primary and .verified))[0].email')
+git config --global user.name "$($gh api user -q '.name // .login')"
+git config --global user.email "$email"
+# Every commit is signed with this Mac mini's own key, so GitHub shows it Verified
+if [[ ! -f ~/.ssh/id_ed25519 ]]; then
+  ssh-keygen -q -t ed25519 -N "" -C "$email" -f ~/.ssh/id_ed25519
+  $gh ssh-key add ~/.ssh/id_ed25519.pub --type signing --title "$(scutil --get ComputerName)"
+fi
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+EOF
 
 rm -rf "$temporary"
 step "Done."
