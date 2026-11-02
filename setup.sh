@@ -104,7 +104,8 @@ mkdir -p ~/code
 # Files the agents create are readable only by dev
 grep -qs 'umask 077' ~/.zshenv || echo 'umask 077' >> ~/.zshenv
 [[ -x ~/.local/bin/claude ]] || curl -fsSL https://claude.ai/install.sh | bash
-grep -qs '.local/bin' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+# Match the whole line: oh-my-zsh's .zshrc already mentions .local/bin in a comment
+grep -qsxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 mkdir -p ~/.claude
 curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.claude/claude-usage-statusline.sh
 chmod 755 ~/.claude/claude-usage-statusline.sh
