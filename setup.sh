@@ -49,7 +49,9 @@ if [[ ! -x /opt/homebrew/bin/brew ]]; then
 fi
 grep -qs 'brew shellenv' ~/.zprofile || echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
-brew install tailscale tmux gh uv node pnpm
+# A rerun doesn't upgrade the tools already installed (README.md, Daily use).
+# Installing a missing one can still upgrade what it depends on.
+HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm
 brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
