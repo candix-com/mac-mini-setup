@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sets up one Mac mini: users, settings, Tailscale, tools, GitHub and the dashboard.
+# Sets up one Mac mini: users, settings, Tailscale, tools, Postgres, GitHub and the dashboard.
 # Run it at the Mac mini, as admin, in Terminal (README.md, step 3). A second run skips what is already done.
 set -euo pipefail
 
@@ -18,10 +18,10 @@ sudo -v
 while true; do sudo -n true; sleep 50; kill -0 "$$" || exit; done 2>/dev/null &
 temporary=$(mktemp -d)
 
-step "1/6 Name"
+step "1/7 Name"
 for key in ComputerName HostName LocalHostName; do sudo scutil --set "$key" "$name"; done
 
-step "2/6 Users"
+step "2/7 Users"
 # dev runs the agents and only logs in over Tailscale SSH. Its password is random and never shown,
 # and it gets no secure token, so it can neither log in at the screen nor unlock FileVault.
 id dev >/dev/null 2>&1 || sudo sysadminctl -addUser dev -fullName Dev -password "$(openssl rand -base64 30)"
@@ -41,7 +41,7 @@ fi
 # macOS lets users read each other's home folders by default
 sudo chmod 700 "/Users/$USER" /Users/dev /Users/stats
 
-step "3/6 Homebrew, tools and Tailscale"
+step "3/7 Homebrew, tools and Tailscale"
 if [[ ! -x /opt/homebrew/bin/brew ]]; then
   # Downloaded to a file first, so a failed download stops the script
   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$temporary/homebrew-install.sh"
@@ -49,7 +49,11 @@ if [[ ! -x /opt/homebrew/bin/brew ]]; then
 fi
 grep -qs 'brew shellenv' ~/.zprofile || echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
-brew install tailscale tmux gh uv node pnpm
+# A rerun doesn't upgrade the tools already installed (README.md, Daily use).
+# Installing a missing one can still upgrade what it depends on.
+HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm postgresql@18
+# Homebrew doesn't put psql on the PATH by itself for a versioned formula
+[[ -e /opt/homebrew/bin/psql ]] || brew link postgresql@18
 brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
@@ -60,7 +64,46 @@ if ! tailscale status >/dev/null 2>&1; then
   done
 fi
 
-step "4/6 Dashboard"
+step "4/7 Postgres"
+pg=/opt/homebrew/opt/postgresql@18/bin
+data=/Users/dev/.postgres
+# Checked as dev, because admin can't see inside /Users/dev
+if ! sudo -u dev test -d $data; then
+  # UTC, as in CI and Docker, because candix stores its dates without a time zone. Logs go to $data/log.
+  sudo -u dev env TZ=UTC $pg/initdb -D $data --locale=en_US.UTF-8 --auth-local=peer --auth-host=reject -c logging_collector=on >/dev/null
+  # The Postgres superuser, dev, can run shell commands as the Mac user dev. So only the Mac user dev can log in as it,
+  # over the socket, and only to the database postgres. In a database an app role owns, that role could plant a function
+  # or trigger that runs as dev.
+  # Apps log in over localhost with a password, as members of the role apps. Their passwords are in the repos, so they must not be superusers.
+  printf 'local postgres dev peer\nhost all +apps 127.0.0.1/32 scram-sha-256\nhost all +apps ::1/128 scram-sha-256\n' |
+    sudo -u dev tee $data/pg_hba.conf >/dev/null
+fi
+# Runs as dev from boot, even when nobody is logged in.
+# Without LC_ALL, Postgres stops at start with "postmaster became multithreaded".
+sudo tee /Library/LaunchDaemons/com.candix.postgres.plist >/dev/null <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>EnvironmentVariables</key>
+  <dict><key>LC_ALL</key><string>en_US.UTF-8</string></dict>
+  <key>KeepAlive</key><true/>
+  <key>Label</key><string>com.candix.postgres</string>
+  <key>ProgramArguments</key>
+  <array><string>$pg/postgres</string><string>-D</string><string>$data</string></array>
+  <key>UserName</key><string>dev</string>
+</dict>
+</plist>
+EOF
+sudo launchctl print system/com.candix.postgres >/dev/null 2>&1 ||
+  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.postgres.plist
+for _ in {1..30}; do sudo -u dev $pg/pg_isready -q && break; sleep 1; done
+sudo -u dev $pg/pg_isready -q || { echo "Postgres didn't start. Its log, if it wrote one: sudo ls $data/log"; exit 1; }
+sudo -u dev $pg/psql -Xq -d postgres <<'EOF'
+SELECT 'CREATE ROLE apps' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'apps') \gexec
+EOF
+
+step "5/7 Dashboard"
 fetch mini-stats "$temporary/mini-stats"
 sudo mkdir -p /usr/local/bin
 sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini-stats
@@ -89,7 +132,7 @@ else
   sudo dscl . -create /Users/stats UserShell /usr/local/bin/mini-stats
 fi
 
-step "5/6 dev: shell, Claude Code and GitHub"
+step "6/7 dev: shell, Claude Code and GitHub"
 sudo -u dev -H /bin/bash -s <<'EOF'
 set -euo pipefail
 cd ~
@@ -136,7 +179,7 @@ git config --global commit.gpgsign true
 EOF
 
 # Last, because turning on the firewall cuts the internet for a few seconds
-step "6/6 Settings"
+step "7/7 Settings"
 sudo pmset -a sleep 0 displaysleep 0 autorestart 1
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
