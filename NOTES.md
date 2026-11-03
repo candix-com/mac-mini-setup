@@ -8,6 +8,7 @@
 - The Mac minis are tagged in Tailscale. Tagged devices have no key expiry and don't belong to your account. The policy lets only you, from a Mac, log in as `dev`, or as `admin` after you log in to Tailscale again in the browser. mini-1 may log in to the others only as `stats`.
 - On every Mac mini but mini-1, the shell of `stats` is `mini-stats`, so logging in as `stats` prints four numbers and exits.
 - The dashboard lists every device tagged `tag:mini`, so a new Mac mini shows up on its own.
+- Wi-Fi is off: the Mac minis use Ethernet.
 - The dashboard screen connects to mini-1 by HDMI only and takes USB power from the power strip, so it can't act as a keyboard.
 - macOS updates restart the Mac, so you install them yourself, with `-R` or `fdesetup authrestart`, which unlock FileVault once on the way back up.
 - The agents push with a `gh` token for Owen's GitHub account. It has the `repo`, `read:org`, `gist`, `admin:ssh_signing_key` and `user:email` scopes, but not `workflow`, so it can't change workflow files. Each Mac mini signs its commits with its own key, so GitHub shows them Verified. The `main` ruleset ([GITHUB.md](GITHUB.md)) makes every change go through a pull request that someone else approves, and secrets reach only jobs on `main`.
