@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sets up one Mac mini: users, settings, Tailscale, tools, Postgres, GitHub and the dashboard.
+# Sets up one Mac mini: users, settings, Tailscale, tools, Docker, GitHub and the dashboard.
 # Run it at the Mac mini, as admin, in Terminal (README.md, step 3). A second run skips what is already done.
 set -euo pipefail
 
@@ -51,9 +51,7 @@ grep -qs 'brew shellenv' ~/.zprofile || echo 'eval "$(/opt/homebrew/bin/brew she
 eval "$(/opt/homebrew/bin/brew shellenv)"
 # A rerun doesn't upgrade the tools already installed (README.md, Daily use).
 # Installing a missing one can still upgrade what it depends on.
-HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm postgresql@18
-# Homebrew doesn't put psql on the PATH by itself for a versioned formula
-[[ -e /opt/homebrew/bin/psql ]] || brew link postgresql@18
+HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm colima docker docker-compose
 brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
@@ -64,44 +62,34 @@ if ! tailscale status >/dev/null 2>&1; then
   done
 fi
 
-step "4/7 Postgres"
-pg=/opt/homebrew/opt/postgresql@18/bin
-data=/Users/dev/.postgres
-# Checked as dev, because admin can't see inside /Users/dev
-if ! sudo -u dev test -d $data; then
-  # UTC, as in CI and Docker, because candix stores its dates without a time zone. Logs go to $data/log.
-  sudo -u dev env TZ=UTC $pg/initdb -D $data --locale=en_US.UTF-8 --auth-local=peer --auth-host=reject -c logging_collector=on >/dev/null
-  # The Postgres superuser, dev, can run shell commands as the Mac user dev. So only the Mac user dev can log in as it,
-  # over the socket, and only to the database postgres. In a database an app role owns, that role could plant a function
-  # or trigger that runs as dev.
-  # Apps log in over localhost with a password, as members of the role apps. Their passwords are in the repos, so they must not be superusers.
-  printf 'local postgres dev peer\nhost all +apps 127.0.0.1/32 scram-sha-256\nhost all +apps ::1/128 scram-sha-256\n' |
-    sudo -u dev tee $data/pg_hba.conf >/dev/null
-fi
-# Runs as dev from boot, even when nobody is logged in.
-# Without LC_ALL, Postgres stops at start with "postmaster became multithreaded".
-sudo tee /Library/LaunchDaemons/com.candix.postgres.plist >/dev/null <<EOF
+step "4/7 Docker"
+# Colima runs Docker in a Linux VM, as dev, from boot, with nobody logged in (NOTES.md)
+sudo -u dev mkdir -p /Users/dev/Library/Logs
+# The job runs colima, and Colima runs limactl and docker, from the PATH, which launchd sets without /opt/homebrew/bin.
+# Each launch force-stops the VM first. A VM left running by a failed start would otherwise
+# make colima start exit at once.
+sudo tee /Library/LaunchDaemons/com.candix.colima.plist >/dev/null <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>EnvironmentVariables</key>
-  <dict><key>LC_ALL</key><string>en_US.UTF-8</string></dict>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>KeepAlive</key><true/>
-  <key>Label</key><string>com.candix.postgres</string>
+  <key>Label</key><string>com.candix.colima</string>
   <key>ProgramArguments</key>
-  <array><string>$pg/postgres</string><string>-D</string><string>$data</string></array>
+  <array><string>/bin/sh</string><string>-c</string><string>colima stop --force; exec colima start --foreground</string></array>
+  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/colima.log</string>
+  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/colima.log</string>
   <key>UserName</key><string>dev</string>
 </dict>
 </plist>
 EOF
-sudo launchctl print system/com.candix.postgres >/dev/null 2>&1 ||
-  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.postgres.plist
-for _ in {1..30}; do sudo -u dev $pg/pg_isready -q && break; sleep 1; done
-sudo -u dev $pg/pg_isready -q || { echo "Postgres didn't start. Its log, if it wrote one: sudo ls $data/log"; exit 1; }
-sudo -u dev $pg/psql -Xq -d postgres <<'EOF'
-SELECT 'CREATE ROLE apps' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'apps') \gexec
-EOF
+sudo launchctl print system/com.candix.colima >/dev/null 2>&1 ||
+  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.colima.plist
+# The first start downloads the VM, so it can take a few minutes
+for _ in {1..300}; do sudo -u dev -H docker info >/dev/null 2>&1 && break; sleep 1; done
+sudo -u dev -H docker info >/dev/null 2>&1 || { echo "Docker didn't start. Colima's log: sudo cat /Users/dev/Library/Logs/colima.log"; exit 1; }
 
 step "5/7 Dashboard"
 fetch mini-stats "$temporary/mini-stats"
@@ -150,6 +138,9 @@ grep -qs 'umask 077' ~/.zshenv || echo 'umask 077' >> ~/.zshenv
 # Match the whole line: oh-my-zsh's .zshrc already mentions .local/bin in a comment
 grep -qsxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 mkdir -p ~/.claude
+# Lets dev run docker compose: the docker CLI looks for its plugins in ~/.docker/cli-plugins
+mkdir -p ~/.docker/cli-plugins
+ln -sf /opt/homebrew/lib/docker/cli-plugins/docker-compose ~/.docker/cli-plugins/docker-compose
 curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.claude/claude-usage-statusline.sh
 chmod 755 ~/.claude/claude-usage-statusline.sh
 [[ -f ~/.claude/settings.json ]] ||
