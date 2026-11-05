@@ -150,7 +150,7 @@ EOF
 if ! sudo -u dev -H /opt/homebrew/bin/gh auth status >/dev/null 2>&1; then
   echo "GitHub login, with Owen's account (owreed)."
   # The token goes in a file: dev's Keychain is locked over SSH
-  sudo -u dev -H /opt/homebrew/bin/gh auth login -h github.com -p https -w -s admin:ssh_signing_key,user:email --insecure-storage </dev/tty
+  sudo -u dev -H /opt/homebrew/bin/gh auth login -h github.com -p https -w -s admin:ssh_signing_key,user:email,workflow --insecure-storage </dev/tty
   sudo -u dev -H /opt/homebrew/bin/gh auth setup-git
 fi
 sudo -u dev -H /bin/bash -s <<'EOF'
