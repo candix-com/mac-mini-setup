@@ -15,4 +15,5 @@
 - `ssh -a` keeps your laptop's SSH keys out of the Mac minis.
 - `umask 077` makes the files the agents create readable only by `dev`.
 - macOS has no Docker daemon, so Colima runs one in a Linux VM, as `dev`, from boot, with nobody logged in. Docker Desktop would run only while someone is logged in at the screen. Each repo starts its own services, such as Postgres, with `docker compose`, the same way as on a laptop, in CI and in Claude's cloud sessions.
+- Testcontainers for Node ignores Docker contexts, so `~/.zshenv` sets `DOCKER_HOST` to Colima's socket, and every repo whose tests start their own containers finds Docker with no setup of its own. `docker` and `docker compose` follow `DOCKER_HOST` too, and it names the same socket as Colima's context.
 - There are no backups. The code lives on GitHub.
