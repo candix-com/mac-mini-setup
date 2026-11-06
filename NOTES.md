@@ -13,6 +13,7 @@
 - macOS updates restart the Mac, so you install them yourself, with `-R` or `fdesetup authrestart`, which unlock FileVault once on the way back up.
 - The agents push with a `gh` token for Owen's GitHub account. It has the `repo`, `read:org`, `gist`, `workflow`, `admin:ssh_signing_key` and `user:email` scopes, so the agents can change workflow files too. Each Mac mini signs its commits with its own key, so GitHub shows them Verified. The `main` ruleset ([GITHUB.md](GITHUB.md)) makes every change go through a pull request that someone else approves, and secrets reach only jobs on `main`.
 - `ssh -a` keeps your laptop's SSH keys out of the Mac minis.
+- Claude Code sends no usage data or error reports to Anthropic (`DISABLE_TELEMETRY` and `DISABLE_ERROR_REPORTING` in dev's `~/.claude/settings.json`). It still updates itself, which `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` would stop, and nothing else updates Claude Code on the Mac minis.
 - `umask 077` makes the files the agents create readable only by `dev`.
 - macOS has no Docker daemon, so Colima runs one in a Linux VM, as `dev`, from boot, with nobody logged in. Docker Desktop would run only while someone is logged in at the screen. Each repo starts its own services, such as Postgres, with `docker compose`, the same way as on a laptop, in CI and in Claude's cloud sessions.
 - There are no backups. The code lives on GitHub.
