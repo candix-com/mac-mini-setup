@@ -141,6 +141,14 @@ mkdir -p ~/.claude
 # Lets dev run docker compose: the docker CLI looks for its plugins in ~/.docker/cli-plugins
 mkdir -p ~/.docker/cli-plugins
 ln -sf /opt/homebrew/lib/docker/cli-plugins/docker-compose ~/.docker/cli-plugins/docker-compose
+# Testcontainers for Node ignores Docker contexts, so DOCKER_HOST gives it Colima's socket. Its
+# reaper container bind-mounts the Docker socket, and Docker looks that path up inside Colima's VM,
+# so TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE names the VM's socket, /var/run/docker.sock
+# (https://node.testcontainers.org/supported-container-runtimes/#colima).
+grep -qsxF 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' ~/.zshenv ||
+  echo 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' >> ~/.zshenv
+grep -qsxF 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' ~/.zshenv ||
+  echo 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' >> ~/.zshenv
 curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.claude/claude-usage-statusline.sh
 chmod 755 ~/.claude/claude-usage-statusline.sh
 [[ -f ~/.claude/settings.json ]] ||
