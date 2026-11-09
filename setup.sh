@@ -155,7 +155,8 @@ chmod 755 ~/.claude/claude-usage-statusline.sh
   printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > ~/.claude/settings.json
 # No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
 # Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
-settings=$(/usr/bin/jq '.env += {"DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1"}' ~/.claude/settings.json)
+# No "Generated with Claude Code" line in PR descriptions and no Co-authored-by trailer in commits.
+settings=$(/usr/bin/jq '.env += {"DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1"} | .attribution = false' ~/.claude/settings.json)
 printf '%s\n' "$settings" > ~/.claude/settings.json
 EOF
 
