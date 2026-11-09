@@ -183,6 +183,28 @@ git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
 EOF
 
+# Claude Code refreshes plugin marketplaces only now and then, so new sessions ran old candix skills.
+# This pulls every marketplace every 5 minutes, as dev, with nobody logged in. git comes from the PATH.
+sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>EnvironmentVariables</key>
+  <dict><key>HOME</key><string>/Users/dev</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+  <key>Label</key><string>com.candix.claude-marketplaces</string>
+  <key>ProgramArguments</key>
+  <array><string>/Users/dev/.local/bin/claude</string><string>plugin</string><string>marketplace</string><string>update</string></array>
+  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
+  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
+  <key>StartInterval</key><integer>300</integer>
+  <key>UserName</key><string>dev</string>
+</dict>
+</plist>
+EOF
+sudo launchctl print system/com.candix.claude-marketplaces >/dev/null 2>&1 ||
+  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.claude-marketplaces.plist
+
 # Last, because turning on the firewall cuts the internet for a few seconds
 step "7/7 Settings"
 sudo pmset -a sleep 0 displaysleep 0 autorestart 1
