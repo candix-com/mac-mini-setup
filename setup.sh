@@ -157,8 +157,7 @@ chmod 755 ~/.claude/claude-usage-statusline.sh
 # No auto memory: lessons go in the shared skills, not in one machine's memory.
 # No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
 # Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
-# The maintainer plugin is the agent's own routine, so this machine enables it, not a repository,
-# along with engineering and reviewers, whose skills it calls.
+# The maintainer plugin and the two it calls: only the agent runs it, so this machine enables them, not a repository.
 settings=$(/usr/bin/jq '.attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix = {"source": {"source": "github", "repo": "candix-com/skills"}, "autoUpdate": true} | .enabledPlugins += {"engineering@candix": true, "reviewers@candix": true, "maintainer@candix": true}' ~/.claude/settings.json)
 printf '%s\n' "$settings" > ~/.claude/settings.json
 EOF
