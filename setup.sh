@@ -52,7 +52,6 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # A rerun doesn't upgrade the tools already installed (README.md, Daily use).
 # Installing a missing one can still upgrade what it depends on.
 HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm colima docker docker-compose
-# Chrome's own updater never sets itself up here, so the monthly brew upgrade --greedy updates it (README.md, Daily use)
 HOMEBREW_NO_INSTALL_UPGRADE=1 brew install --cask google-chrome
 brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
