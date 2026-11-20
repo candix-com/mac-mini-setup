@@ -218,8 +218,8 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/n
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 # macOS updates restart the Mac, so you install them yourself (README.md, Daily use)
 sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
-# After the firewall, so the LAN can never reach Screen Sharing. Turning it on in System Settings marks it enabled in launchd's overrides.
-until grep -qF '"com.apple.screensharing" => enabled' <<<"$(launchctl print-disabled system)"; do
+# After the firewall, so the LAN can't reach Screen Sharing
+until sudo launchctl print system/com.apple.screensharing >/dev/null 2>&1; do
   echo "Turn on Screen Sharing in the Sharing settings that open."
   open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
   read -rp "Then press Enter. " </dev/tty
