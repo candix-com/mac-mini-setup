@@ -27,12 +27,12 @@ On your laptop:
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/setup.sh)"
    ```
 3. Along the way:
-   1. If Sharing settings open: turn on **Screen Sharing**, then paste the command again.
-   2. Type the Mac mini's number: `1` for the one with the screen, then `2`, `3`, and so on.
-   3. Type admin's password.
-   4. mini-1 only: type a new password for `stats`, then admin's password. Save stats' password in your password manager. If FileVault then asks for a user name, type `admin`, then the passwords it asks for.
-   5. A Tailscale tab opens: log in with your account, click **Connect**.
-   6. GitHub: copy the code it shows, press Enter, log in to GitHub as Owen (`owreed`), paste the code, click **Authorize**. If it asks to authenticate Git with your GitHub credentials, answer **Yes**. If no browser opens, open https://github.com/login/device.
+   1. Type the Mac mini's number: `1` for the one with the screen, then `2`, `3`, and so on.
+   2. Type admin's password.
+   3. mini-1 only: type a new password for `stats`, then admin's password. Save stats' password in your password manager. If FileVault then asks for a user name, type `admin`, then the passwords it asks for.
+   4. A Tailscale tab opens: log in with your account, click **Connect**.
+   5. GitHub: copy the code it shows, press Enter, log in to GitHub as Owen (`owreed`), paste the code, click **Authorize**. If it asks to authenticate Git with your GitHub credentials, answer **Yes**. If no browser opens, open https://github.com/login/device.
+   6. If Sharing settings open: turn on **Screen Sharing**, then press Enter in Terminal.
 4. When it says **Done**: Apple menu → **Log Out admin**. On every Mac mini but mini-1, unplug the screen, keyboard and mouse.
 
 ## 4. Dashboard (mini-1 only)

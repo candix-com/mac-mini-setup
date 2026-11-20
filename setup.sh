@@ -7,11 +7,6 @@ fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setu
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 fdesetup isactive >/dev/null || { echo "Turn on FileVault first: System Settings > Privacy & Security > FileVault."; exit 1; }
-grep -qF '"com.apple.screensharing" => enabled' <<<"$(launchctl print-disabled system)" || {
-  open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
-  echo "Turn on Screen Sharing first: System Settings > General > Sharing > Screen Sharing. Then run this again."
-  exit 1
-}
 read -rp "Which Mac mini is this? Type its number (1 is the one with the screen): " number </dev/tty
 [[ $number =~ ^[1-9][0-9]*$ ]] || { echo "Type just a number, like 1."; exit 1; }
 name="mini-$number"
@@ -223,6 +218,12 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/n
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 # macOS updates restart the Mac, so you install them yourself (README.md, Daily use)
 sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
+# After the firewall, so the LAN can never reach Screen Sharing. Turning it on in System Settings marks it enabled in launchd's overrides.
+until grep -qF '"com.apple.screensharing" => enabled' <<<"$(launchctl print-disabled system)"; do
+  echo "Turn on Screen Sharing in the Sharing settings that open."
+  open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
+  read -rp "Then press Enter. " </dev/tty
+done
 
 rm -rf "$temporary"
 step "Done."
