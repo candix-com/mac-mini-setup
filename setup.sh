@@ -214,16 +214,17 @@ step "7/7 Settings"
 sudo pmset -a sleep 0 displaysleep 0 autorestart 1
 # Ethernet only. Given the port name Wi-Fi, -setairportpower falls back to the only airport interface it finds, so this passes the device, such as en1.
 sudo networksetup -setairportpower "$(networksetup -listallhardwareports | awk '/^Hardware Port: Wi-Fi$/ { getline; print $2 }')" off
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 # macOS updates restart the Mac, so you install them yourself (README.md, Daily use)
 sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
-# After the firewall, so the LAN can't reach Screen Sharing
+# System Settings can't turn on Screen Sharing while the firewall blocks all incoming connections (NOTES.md)
 until sudo launchctl print system/com.apple.screensharing >/dev/null 2>&1; do
+  sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off >/dev/null
   echo "Turn on Screen Sharing in the Sharing settings that open."
   open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
   read -rp "Then press Enter. " </dev/tty
 done
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 
 rm -rf "$temporary"
 step "Done."
