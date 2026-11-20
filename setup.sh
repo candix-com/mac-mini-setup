@@ -62,8 +62,7 @@ if ! tailscale status >/dev/null 2>&1; then
     [[ $line =~ (https://login\.tailscale\.com/[^[:space:]]+) ]] && open "${BASH_REMATCH[1]}" || true
   done
 fi
-# Screen Sharing over Tailscale only: tailscaled takes port 5900 and hands it to the Mac mini itself,
-# so the firewall keeps blocking it from the local network (NOTES.md)
+# Screen Sharing over Tailscale, since the firewall blocks it (NOTES.md)
 sudo tailscale serve --bg --tcp 5900 tcp://localhost:5900 >/dev/null
 
 step "4/7 Docker"
