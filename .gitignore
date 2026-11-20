@@ -2,6 +2,10 @@
 *
 !.gitignore
 
+# Folders
+!/.claude
+!/.claude/settings.json
+
 # Files
 !/claude-usage-statusline.sh
 !/GITHUB.md
