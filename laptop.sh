@@ -35,7 +35,6 @@ exit \$rc
 EOF
 chmod +x "/opt/homebrew/bin/mini-$number"
 
-# Two Claude setups, each logged in to its own account (or the same one, if you have just one)
 for profile in work personal; do
   echo "Log in to Claude $profile. Click the link it shows, approve with the $profile account, paste the code back."
   echo "Once you see Claude's prompt, type /exit."

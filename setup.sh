@@ -189,8 +189,7 @@ fi
 git config --global gpg.format ssh
 git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
-# claude-work and claude-personal: each keeps its login, settings, plugins and connectors in its own folder.
-# After the GitHub login, because candix-com/skills is private.
+# Here, after the GitHub login, because candix-com/skills is private
 curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.local/bin/claude-usage-statusline.sh
 chmod 755 ~/.local/bin/claude-usage-statusline.sh
 for profile in work personal; do
@@ -204,8 +203,7 @@ for profile in work personal; do
   for plugin in engineering reviewers maintainer; do
     CLAUDE_CONFIG_DIR=$dir ~/.local/bin/claude plugin install "$plugin@candix" >/dev/null
   done
-  # No attribution in commits and PRs. No auto memory: lessons go in the shared skills. autoUpdate goes after
-  # "marketplace add", which drops it. Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code updating.
+  # autoUpdate after "marketplace add", which drops it. No auto memory: lessons go in the shared skills.
   settings=$(/usr/bin/jq '.statusLine = {"type": "command", "command": "~/.local/bin/claude-usage-statusline.sh"} | .attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix.autoUpdate = true' "$dir/settings.json")
   printf '%s\n' "$settings" > "$dir/settings.json"
 done
