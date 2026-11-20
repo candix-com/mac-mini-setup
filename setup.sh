@@ -53,6 +53,10 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # Installing a missing one can still upgrade what it depends on.
 HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm colima docker docker-compose
 HOMEBREW_NO_INSTALL_UPGRADE=1 brew install --cask google-chrome
+# Homebrew quarantines Chrome, so its first start asks "downloaded from the internet, open it?", and mini-1's
+# dashboard opens it with no keyboard to answer. Chrome then updates itself, and brew upgrade skips it, so this stays.
+sudo xattr -r -d com.apple.quarantine "/Applications/Google Chrome.app" 2>/dev/null || true
+if xattr -p com.apple.quarantine "/Applications/Google Chrome.app" >/dev/null 2>&1; then echo "Chrome is still quarantined."; exit 1; fi
 brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
