@@ -130,8 +130,6 @@ if [[ $number == 1 ]]; then
 EOF
   done
   sudo -u stats -H defaults -currentHost write com.apple.screensaver idleTime -int 0
-  # Screen Sharing lets in only admins by default. This lets stats in too, to reach the dashboard's session from a laptop.
-  sudo dseditgroup -o edit -a stats -t user com.apple.access_screensharing
 else
   # On the other Mac minis, a login as stats can only print the numbers
   sudo dscl . -create /Users/stats UserShell /usr/local/bin/mini-stats
@@ -261,6 +259,12 @@ until sudo launchctl print system/com.apple.screensharing >/dev/null 2>&1; do
   open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
   read -rp "Then press Enter. " </dev/tty
 done
+# On mini-1, stats may use Screen Sharing too, to reach the dashboard's session from a laptop. Turning Screen Sharing
+# on in System Settings lets in only admins, the members of this group, so stats joins it.
+if [[ $number == 1 ]]; then
+  sudo dseditgroup -o edit -a stats -t user com.apple.access_screensharing ||
+    echo "Couldn't let stats in over Screen Sharing: System Settings > General > Sharing > Screen Sharing (i) > add Stats."
+fi
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 
