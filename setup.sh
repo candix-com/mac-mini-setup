@@ -7,6 +7,11 @@ fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setu
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 fdesetup isactive >/dev/null || { echo "Turn on FileVault first: System Settings > Privacy & Security > FileVault."; exit 1; }
+grep -qF '"com.apple.screensharing" => enabled' <<<"$(launchctl print-disabled system)" || {
+  open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
+  echo "Turn on Screen Sharing first: System Settings > General > Sharing > Screen Sharing. Then run this again."
+  exit 1
+}
 read -rp "Which Mac mini is this? Type its number (1 is the one with the screen): " number </dev/tty
 [[ $number =~ ^[1-9][0-9]*$ ]] || { echo "Type just a number, like 1."; exit 1; }
 name="mini-$number"
