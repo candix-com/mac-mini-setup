@@ -101,22 +101,32 @@ sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini
 # dev saves its Claude usage here for mini-stats. Made as dev, so root never writes through a path dev controls.
 sudo -u dev mkdir -p -m 755 /Users/Shared/claude-usage
 if [[ $number == 1 ]]; then
+  # The screen needs displayplacer to be switched to its real resolution (dashboard-kiosk.sh)
+  HOMEBREW_NO_INSTALL_UPGRADE=1 brew install displayplacer
   fetch machines-dashboard.sh "$temporary/dashboard"
   sudo install -o root -g wheel -m 755 "$temporary/dashboard" /usr/local/bin/machines-dashboard
-  # Opens the dashboard in Terminal when stats logs in
-  sudo -u stats -H mkdir -p /Users/stats/Library/LaunchAgents
-  sudo -u stats -H tee /Users/stats/Library/LaunchAgents/com.candix.dashboard.plist >/dev/null <<'EOF'
+  fetch dashboard-kiosk.sh "$temporary/kiosk"
+  sudo install -o root -g wheel -m 755 "$temporary/kiosk" /usr/local/bin/dashboard-kiosk
+  fetch dashboard.html "$temporary/dashboard.html"
+  sudo -u stats -H mkdir -p /Users/stats/.dashboard /Users/stats/Library/LaunchAgents
+  sudo install -o stats -m 644 "$temporary/dashboard.html" /Users/stats/.dashboard/index.html
+  # When stats logs in: one agent collects the numbers, the other shows them in Chrome. launchd restarts either if it stops.
+  for job in dashboard:/usr/local/bin/dashboard-kiosk dashboard-data:/usr/local/bin/machines-dashboard; do
+    sudo -u stats -H tee "/Users/stats/Library/LaunchAgents/com.candix.${job%%:*}.plist" >/dev/null <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.candix.dashboard</string>
+  <key>Label</key><string>com.candix.${job%%:*}</string>
   <key>ProgramArguments</key>
-  <array><string>/usr/bin/open</string><string>-a</string><string>Terminal</string><string>/usr/local/bin/machines-dashboard</string></array>
+  <array><string>${job#*:}</string></array>
   <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
 </dict>
 </plist>
 EOF
+  done
   sudo -u stats -H defaults -currentHost write com.apple.screensaver idleTime -int 0
 else
   # On the other Mac minis, a login as stats can only print the numbers
@@ -140,7 +150,6 @@ grep -qs 'umask 077' ~/.zshenv || echo 'umask 077' >> ~/.zshenv
 [[ -x ~/.local/bin/claude ]] || curl -fsSL https://claude.ai/install.sh | bash
 # Match the whole line: oh-my-zsh's .zshrc already mentions .local/bin in a comment
 grep -qsxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-mkdir -p ~/.claude
 # Lets dev run docker compose: the docker CLI looks for its plugins in ~/.docker/cli-plugins
 mkdir -p ~/.docker/cli-plugins
 ln -sf /opt/homebrew/lib/docker/cli-plugins/docker-compose ~/.docker/cli-plugins/docker-compose
@@ -152,17 +161,31 @@ grep -qsxF 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' ~/.zs
   echo 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' >> ~/.zshenv
 grep -qsxF 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' ~/.zshenv ||
   echo 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' >> ~/.zshenv
+# Two Claude setups, each with its own login, settings, plugins and connectors: claude-work and
+# claude-personal. Each keeps everything in its own folder (CLAUDE_CONFIG_DIR). Plain claude only
+# says which to type, so nobody starts a third, unlabeled one by accident.
+mkdir -p ~/.claude
 curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.claude/claude-usage-statusline.sh
 chmod 755 ~/.claude/claude-usage-statusline.sh
-[[ -f ~/.claude/settings.json ]] ||
-  printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > ~/.claude/settings.json
-# No "Generated with Claude Code" line in PR descriptions and no Co-authored-by trailer in commits.
-# No auto memory: lessons go in the shared skills, not in one machine's memory.
-# No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
-# Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
-# The maintainer plugin and the two it calls: only the agent runs it, so this machine enables them, not a repository.
-settings=$(/usr/bin/jq '.attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix = {"source": {"source": "github", "repo": "candix-com/skills"}, "autoUpdate": true} | .enabledPlugins += {"engineering@candix": true, "reviewers@candix": true, "maintainer@candix": true}' ~/.claude/settings.json)
-printf '%s\n' "$settings" > ~/.claude/settings.json
+for profile in work personal; do
+  label=$(tr '[:lower:]' '[:upper:]' <<<"${profile:0:1}")${profile:1}
+  dir=~/.claude-$profile
+  mkdir -p "$dir"
+  printf '#!/bin/bash\n# Generated by mac-mini-setup. Starts Claude Code with the %s setup.\nexport CLAUDE_CONFIG_DIR="$HOME/.claude-%s" CLAUDE_PROFILE=%s\nexec "$HOME/.local/bin/claude" "$@"\n' "$label" "$profile" "$label" > ~/.local/bin/claude-$profile
+  chmod 755 ~/.local/bin/claude-$profile
+  [[ -f $dir/settings.json ]] ||
+    printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > "$dir/settings.json"
+  # No "Generated with Claude Code" line in PR descriptions and no Co-authored-by trailer in commits.
+  # No auto memory: lessons go in the shared skills, not in one machine's memory.
+  # No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
+  # Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
+  # The maintainer plugin and the two it calls: only the agent runs it, so this machine enables them, not a repository.
+  settings=$(/usr/bin/jq '.attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix = {"source": {"source": "github", "repo": "candix-com/skills"}, "autoUpdate": true} | .enabledPlugins += {"engineering@candix": true, "reviewers@candix": true, "maintainer@candix": true}' "$dir/settings.json")
+  printf '%s\n' "$settings" > "$dir/settings.json"
+done
+# Inside a Claude session (CLAUDE_CONFIG_DIR set), claude runs as usual
+grep -qs '^claude()' ~/.zshrc ||
+  echo 'claude() { [[ -n $CLAUDE_CONFIG_DIR ]] && { command claude "$@"; return; }; echo "Type claude-work or claude-personal." >&2; return 1; }' >> ~/.zshrc
 EOF
 
 if ! sudo -u dev -H /opt/homebrew/bin/gh auth status >/dev/null 2>&1; then
@@ -188,7 +211,7 @@ git config --global commit.gpgsign true
 EOF
 
 # Claude Code refreshes plugin marketplaces only now and then, so new sessions ran old candix skills.
-# This pulls every marketplace every 5 minutes, as dev, with nobody logged in. git comes from the PATH.
+# This pulls every marketplace of both setups every 5 minutes, as dev, with nobody logged in. git comes from the PATH.
 sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -198,7 +221,7 @@ sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null 
   <dict><key>HOME</key><string>/Users/dev</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>Label</key><string>com.candix.claude-marketplaces</string>
   <key>ProgramArguments</key>
-  <array><string>/Users/dev/.local/bin/claude</string><string>plugin</string><string>marketplace</string><string>update</string></array>
+  <array><string>/bin/sh</string><string>-c</string><string>for p in work personal; do CLAUDE_CONFIG_DIR=/Users/dev/.claude-$p /Users/dev/.local/bin/claude plugin marketplace update; done</string></array>
   <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
   <key>StandardOutPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
   <key>StartInterval</key><integer>300</integer>
@@ -206,8 +229,9 @@ sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null 
 </dict>
 </plist>
 EOF
-sudo launchctl print system/com.candix.claude-marketplaces >/dev/null 2>&1 ||
-  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.claude-marketplaces.plist
+# Reloaded every run, so a Mac mini set up before picks up a changed plist
+sudo launchctl bootout system/com.candix.claude-marketplaces 2>/dev/null || true
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.claude-marketplaces.plist
 
 # Last, because turning on the firewall cuts the internet for a few seconds
 step "7/7 Settings"

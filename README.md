@@ -36,10 +36,9 @@ On your laptop:
 
 ## 4. Dashboard (mini-1 only)
 
-1. Log in as `stats`. The dashboard opens in Terminal.
-2. **Terminal** menu → **Settings** → **Profiles** → **Text** → **Font: Change** → size 24. Close the windows.
-3. Plug the screen's USB cable into the power strip, not into the Mac mini.
-4. Unplug the keyboard and mouse.
+1. Log in as `stats`. The dashboard opens in Chrome, full screen. If the picture looks squashed, see "Dashboard squashed" in Daily use.
+2. Plug the screen's USB cable into the power strip, not into the Mac mini.
+3. Unplug the keyboard and mouse.
 
 ## 5. Your laptop
 
@@ -49,7 +48,7 @@ On your laptop:
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/laptop.sh)"
    ```
 3. Type the Mac mini's number.
-4. Claude opens to log in: click the link, approve it in the browser, paste the code back, then type `/exit`.
+4. Claude opens twice to log in, first Work, then Personal: each time click the link, approve it in the browser with that account, paste the code back, then type `/exit`. With only one account, log in to it both times.
 
 Next Mac mini: step 2.
 
@@ -58,7 +57,7 @@ Next Mac mini: step 2.
 | Do this                                               | How                                                                                                                                                                         |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Open a Mac mini's terminal (all tabs still there)     | `mini-<n>`                                                                                                                                                                  |
-| Start Claude                                          | `claude`                                                                                                                                                                    |
+| Start Claude, Work or Personal setup                  | `claude-work` or `claude-personal`                                                                                                                                          |
 | New tab                                               | `Ctrl-b` then `c`                                                                                                                                                           |
 | Next / previous tab                                   | `Ctrl-b` then `n` / `p`                                                                                                                                                     |
 | List all tabs, jump to one                            | `Ctrl-b` then `w`                                                                                                                                                           |
@@ -70,6 +69,7 @@ Next Mac mini: step 2.
 | Restart a Mac mini                                    | `ssh admin@mini-<n>`, then `sudo fdesetup authrestart`                                                                                                                      |
 | See a Mac mini's screen                               | `open vnc://mini-<n>`, log in as `admin`, then Apple menu → **Log Out admin**                                                                                               |
 | After a power cut                                     | Each Mac mini waits for a FileVault password. mini-1: log in as `stats`. The others: plug in a screen and keyboard, log in as `admin`, then Apple menu → **Log Out admin**. |
+| Dashboard squashed                                    | At mini-1, logged in as `stats`: System Settings → Displays → Advanced → Show resolutions as list → Show all resolutions → 1280 × 400                                       |
 | Update Tailscale, after a Tailscale security bulletin | At the Mac mini, logged in as `admin`, in Terminal: `brew unpin tailscale && brew upgrade tailscale && sudo brew services restart tailscale && brew pin tailscale`          |
 
 If `ssh admin@…` shows a Tailscale link, open it and log in.

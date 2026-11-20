@@ -35,8 +35,11 @@ exit \$rc
 EOF
 chmod +x "/opt/homebrew/bin/mini-$number"
 
-echo "Last step: log in to Claude. Click the link it shows, approve, paste the code back."
-echo "Once you see Claude's prompt, type /exit."
-read -rp "Press Enter to continue..." </dev/tty
-ssh -a -o RemoteCommand=none -t "mini-$number" '~/.local/bin/claude' </dev/tty || true
+# Two Claude setups, each logged in to its own account (or the same one, if you have just one)
+for profile in work personal; do
+  echo "Log in to Claude $profile. Click the link it shows, approve with the $profile account, paste the code back."
+  echo "Once you see Claude's prompt, type /exit."
+  read -rp "Press Enter to continue..." </dev/tty
+  ssh -a -o RemoteCommand=none -t "mini-$number" "~/.local/bin/claude-$profile" </dev/tty || true
+done
 echo "Done. Type: mini-$number"

@@ -1,9 +1,17 @@
 #!/bin/bash
-# Prints this Mac's CPU idle %, memory free %, Claude 5-hour % and Claude weekly %, for machines-dashboard.
+# Prints this Mac's CPU idle % and memory free %, then for the Work setup and then the Personal one: Claude 5-hour %,
+# when that resets, weekly %, when that resets (epoch seconds), "-" when unknown. machines-dashboard.sh reads it.
 # setup.sh installs it, and makes it the stats user's only shell on every Mac mini but mini-1.
 idle=$(/usr/bin/top -l 2 -n 0 -s 1 | /usr/bin/awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
 free=$(/usr/bin/memory_pressure -Q | /usr/bin/awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')
-limits=$(/usr/bin/jq -r '[.five_hour, .seven_day]
-  | map(if (.resets_at // 0) > now then (.used_percentage | floor | tostring) else "-" end)
-  | join(" ")' /Users/Shared/claude-usage/latest.json 2>/dev/null)
-echo "$idle $free ${limits:-- -}"
+limits=""
+for profile in work personal; do
+  # A window whose reset time has passed is back to 0%
+  usage=$(/usr/bin/jq -r '[.five_hour, .seven_day]
+    | map(if . == null then "-", "-"
+          elif (.resets_at // 0) > now then (.used_percentage | floor | tostring), (.resets_at | floor | tostring)
+          else "0", "-" end)
+    | join(" ")' "/Users/Shared/claude-usage/latest-$profile.json" 2>/dev/null)
+  limits+=" ${usage:-- - - -}"
+done
+echo "$idle $free$limits"
