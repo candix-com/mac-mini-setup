@@ -132,6 +132,8 @@ if [[ $number == 1 ]]; then
 EOF
   done
   sudo -u stats -H defaults -currentHost write com.apple.screensaver idleTime -int 0
+  # Screen Sharing lets in only admins by default. This lets stats in too, to reach the dashboard's session from a laptop.
+  sudo dseditgroup -o edit -a stats -t user com.apple.access_screensharing
 else
   # On the other Mac minis, a login as stats can only print the numbers
   sudo dscl . -create /Users/stats UserShell /usr/local/bin/mini-stats
