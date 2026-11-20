@@ -175,13 +175,6 @@ for profile in work personal; do
   chmod 755 ~/.local/bin/claude-$profile
   [[ -f $dir/settings.json ]] ||
     printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > "$dir/settings.json"
-  # No "Generated with Claude Code" line in PR descriptions and no Co-authored-by trailer in commits.
-  # No auto memory: lessons go in the shared skills, not in one machine's memory.
-  # No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
-  # Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
-  # The maintainer plugin and the two it calls: only the agent runs it, so this machine enables them, not a repository.
-  settings=$(/usr/bin/jq '.attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix = {"source": {"source": "github", "repo": "candix-com/skills"}, "autoUpdate": true} | .enabledPlugins += {"engineering@candix": true, "reviewers@candix": true, "maintainer@candix": true}' "$dir/settings.json")
-  printf '%s\n' "$settings" > "$dir/settings.json"
 done
 # Inside a Claude session (CLAUDE_CONFIG_DIR set), claude runs as usual
 grep -qs '^claude()' ~/.zshrc ||
@@ -208,6 +201,23 @@ fi
 git config --global gpg.format ssh
 git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
+# The candix plugins, in both Claude setups. Here, after the GitHub login, because candix-com/skills is private.
+# Claude doesn't install a fresh setup's plugins by itself, so this does. Each command is a no-op on a rerun.
+for profile in work personal; do
+  dir=~/.claude-$profile
+  CLAUDE_CONFIG_DIR=$dir ~/.local/bin/claude plugin marketplace add candix-com/skills >/dev/null
+  for plugin in engineering reviewers maintainer; do
+    CLAUDE_CONFIG_DIR=$dir ~/.local/bin/claude plugin install "$plugin@candix" >/dev/null
+  done
+  # After the commands above: "marketplace add" rewrites the candix entry without autoUpdate.
+  # No "Generated with Claude Code" line in PR descriptions and no Co-authored-by trailer in commits.
+  # No auto memory: lessons go in the shared skills, not in one machine's memory.
+  # No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
+  # Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
+  # The maintainer plugin and the two it calls: only the agent runs it, so this machine enables them, not a repository.
+  settings=$(/usr/bin/jq '.attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix = {"source": {"source": "github", "repo": "candix-com/skills"}, "autoUpdate": true} | .enabledPlugins += {"engineering@candix": true, "reviewers@candix": true, "maintainer@candix": true}' "$dir/settings.json")
+  printf '%s\n' "$settings" > "$dir/settings.json"
+done
 EOF
 
 # Claude Code refreshes plugin marketplaces only now and then, so new sessions ran old candix skills.

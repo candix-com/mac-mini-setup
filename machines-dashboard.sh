@@ -29,7 +29,9 @@ while :; do
   rows=()
   for machine in "${machines[@]}"; do
     idle="" free="" five="" r5="" week="" rw="" pfive="" pr5="" pweek="" prw=""
-    read -r idle free five r5 week rw pfive pr5 pweek prw <"$temporary/$machine"
+    read -r idle free five r5 week rw pfive pr5 pweek prw extra <"$temporary/$machine"
+    # A Mac mini not yet updated prints an older, shorter line: show its CPU and memory, not its Claude numbers
+    [[ -n $prw && -z ${extra-} ]] || five="" r5="" week="" rw="" pfive="" pr5="" pweek="" prw=""
     if [[ $idle =~ ^[0-9]+(\.[0-9]+)?$ && $free =~ ^[0-9]+$ ]]; then
       cpu=$(awk -v i="$idle" 'BEGIN {printf "%d", 100 - i + 0.5}')
       rows+=("{\"name\":\"$machine\",\"up\":true,\"cpu\":$cpu,\"mem\":$((100 - free)),$(
