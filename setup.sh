@@ -62,6 +62,8 @@ if ! tailscale status >/dev/null 2>&1; then
     [[ $line =~ (https://login\.tailscale\.com/[^[:space:]]+) ]] && open "${BASH_REMATCH[1]}" || true
   done
 fi
+# Screen Sharing over Tailscale, since the firewall blocks it (NOTES.md)
+sudo tailscale serve --bg --tcp 5900 tcp://localhost:5900 >/dev/null
 
 step "4/7 Docker"
 # Colima runs Docker in a Linux VM, as dev, from boot, with nobody logged in (NOTES.md)

@@ -32,7 +32,7 @@ On your laptop:
    3. mini-1 only: type a new password for `stats`, then admin's password. Save stats' password in your password manager. If FileVault then asks for a user name, type `admin`, then the passwords it asks for.
    4. A Tailscale tab opens: log in with your account, click **Connect**.
    5. GitHub: copy the code it shows, press Enter, log in to GitHub as Owen (`owreed`), paste the code, click **Authorize**. If it asks to authenticate Git with your GitHub credentials, answer **Yes**. If no browser opens, open https://github.com/login/device.
-4. When it says **Done**: Apple menu → **Log Out admin**. On every Mac mini but mini-1, unplug the screen, keyboard and mouse.
+4. When it says **Done**: System Settings → **General** → **Sharing** → turn on **Screen Sharing**. Then Apple menu → **Log Out admin**. On every Mac mini but mini-1, unplug the screen, keyboard and mouse.
 
 ## 4. Dashboard (mini-1 only)
 
@@ -68,6 +68,7 @@ Next Mac mini: step 2.
 | Update the tools, monthly, on each Mac mini           | `ssh admin@mini-<n>`, then `brew upgrade; sudo -u dev -H colima update`                                                                                                     |
 | Update macOS on a Mac mini                            | `ssh admin@mini-<n>`, `softwareupdate -l`, then `sudo softwareupdate -i 'LABEL' -R --user admin` with the label it showed                                                   |
 | Restart a Mac mini                                    | `ssh admin@mini-<n>`, then `sudo fdesetup authrestart`                                                                                                                      |
+| See a Mac mini's screen                               | `open vnc://mini-<n>`, log in as `admin`, then Apple menu → **Log Out admin**                                                                                               |
 | After a power cut                                     | Each Mac mini waits for a FileVault password. mini-1: log in as `stats`. The others: plug in a screen and keyboard, log in as `admin`, then Apple menu → **Log Out admin**. |
 | Update Tailscale, after a Tailscale security bulletin | At the Mac mini, logged in as `admin`, in Terminal: `brew unpin tailscale && brew upgrade tailscale && sudo brew services restart tailscale && brew pin tailscale`          |
 

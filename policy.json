@@ -16,7 +16,7 @@
       "src": ["group:owner"],
       "srcPosture": ["posture:mac"],
       "dst": ["tag:mini"],
-      "ip": ["tcp:22"]
+      "ip": ["tcp:22", "tcp:5900"]
     },
     { "src": ["tag:dashboard"], "dst": ["tag:mini"], "ip": ["tcp:22"] }
   ],
