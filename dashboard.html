@@ -1,6 +1,5 @@
 <!doctype html>
-<!-- The dashboard on mini-1's 1280x400 screen. setup.sh puts it in /Users/stats/.dashboard, next to the data.js that
-     machines-dashboard.sh rewrites every 5 seconds, and dashboard-kiosk.sh shows it in Chrome, full screen. -->
+<!-- The dashboard on mini-1's screen. It loads the data.js that machines-dashboard.sh writes next to it. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -16,7 +15,7 @@
 }
 *{box-sizing:border-box}
 html{margin:0;width:100vw;height:100vh;overflow:hidden;background:var(--bg)}
-/* Laid out at the panel's 1280x400, then stretched to fill the window (see fit() below) */
+/* Laid out at the panel's 1280x400, then stretched to fill the window (fit()) */
 body{position:relative;transform-origin:0 0;margin:0;width:1280px;height:400px;overflow:hidden;background:var(--bg);color:var(--text);
   font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
@@ -112,7 +111,7 @@ function fmtAgo(s){ return s < 90 ? Math.round(s) + 's' : s < 5400 ? Math.round(
 
 // ---------------------------------------------------------------- DOM
 const clockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>`;
-// Per account: the weekly limit is the big number (hitting it stops an account for days), the 5-hour one is secondary
+// The weekly limit is the big number: hitting it stops an account for days, the 5-hour one for hours
 const acctHTML = (k, label, short, col) => `
   <div class="acct" data-a="${k}">
     <div class="al"><span class="tag" style="color:${col}">${COMPACT?short:label}</span><span class="wk">5h <b class="num">—</b> <span class="r5 num"></span></span></div>
@@ -152,7 +151,7 @@ function render(){
   const machines = f.machines.slice(0, 6);
   const names = machines.map(m => m.name);
   if (names.join(' ') !== layout){ layout = names.join(' '); build(names); }
-  // data.js not rewritten for 30 s: the collector stopped, so nothing on screen is current
+  // The collector stopped
   const stale = t - f.t > 30;
   for (const m of machines){
     const el = cards.get(m.name), up = m.up && !stale;
@@ -192,14 +191,12 @@ function render(){
 }
 
 // ---------------------------------------------------------------- fit
-// The panel is 1280x400, but macOS refuses desktops under about 540 pixels tall, so it sends 1920x1080 and the
-// panel squashes that by 1.5 across and 2.7 down. Stretching the 1280x400 layout to fill the window by exactly
-// that much cancels the squash. At a real 1280x400 window the scale is 1.
+// macOS sends the 1280x400 panel 1920x1080, which the panel squashes back. Stretching to the window cancels that.
 function fit(){ document.body.style.transform = `scale(${innerWidth/1280},${innerHeight/400})`; }
 addEventListener('resize', fit); fit();
 
 // ---------------------------------------------------------------- data
-// A page opened from a file can't fetch() another file, but it can load a script: data.js sets window.FLEET.
+// A page opened from a file can't fetch() another file, but it can load one as a script
 function load(){
   const s = document.createElement('script');
   s.src = 'data.js?' + Date.now();

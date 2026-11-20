@@ -1,6 +1,6 @@
 #!/bin/bash
-# Prints this Mac's CPU idle % and memory free %, then for the Work setup and then the Personal one: Claude 5-hour %,
-# when that resets, weekly %, when that resets (epoch seconds), "-" when unknown. machines-dashboard.sh reads it.
+# Prints CPU idle %, memory free %, then for Work and Personal: 5-hour %, its reset, weekly %, its reset (epoch seconds),
+# "-" when unknown. machines-dashboard.sh reads it.
 # setup.sh installs it, and makes it the stats user's only shell on every Mac mini but mini-1.
 idle=$(/usr/bin/top -l 2 -n 0 -s 1 | /usr/bin/awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
 free=$(/usr/bin/memory_pressure -Q | /usr/bin/awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')

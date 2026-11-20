@@ -1,11 +1,10 @@
 #!/bin/bash
-# Collects the dashboard's numbers on mini-1, every 5 seconds, for every Tailscale device tagged tag:mini:
-# mini-stats' output, run on this Mac and, over Tailscale SSH as stats, on the others. It writes them to
-# /Users/stats/.dashboard/data.js, which dashboard.html loads. setup.sh runs it as stats, from login.
+# Every 5 seconds, writes the mini-stats output of every Mac mini (tag:mini) to data.js, which dashboard.html loads.
+# Runs mini-stats on this Mac and, over Tailscale SSH as stats, on the others.
 set -uo pipefail
 
 tailscale_status() { /opt/homebrew/bin/tailscale status --json; }
-# Only plain numbers from the other machines go into data.js, which Chrome runs as a script
+# Chrome runs data.js, so what the other machines send goes in only as plain numbers and host names
 number() { [[ $1 =~ ^[0-9]+$ ]] && printf '%s' "$1" || printf 'null'; }
 
 output=/Users/stats/.dashboard/data.js
@@ -17,7 +16,6 @@ while :; do
   machines=($(tailscale_status | /usr/bin/jq -r '[.Self, (.Peer // {})[]][]
     | select((.Tags // []) | index("tag:mini")) | .DNSName | split(".")[0]' | grep -E '^[a-z0-9-]+$' | sort -V))
   for machine in "${machines[@]}"; do
-    : >"$temporary/$machine"
     if [[ $machine == "$self" ]]; then
       /usr/local/bin/mini-stats >"$temporary/$machine" 2>/dev/null &   # a Mac can't reach its own Tailscale SSH
     else
@@ -28,10 +26,10 @@ while :; do
 
   rows=()
   for machine in "${machines[@]}"; do
-    idle="" free="" five="" r5="" week="" rw="" pfive="" pr5="" pweek="" prw=""
+    idle="" free="" five="" r5="" week="" rw="" pfive="" pr5="" pweek="" prw="" extra=""
     read -r idle free five r5 week rw pfive pr5 pweek prw extra <"$temporary/$machine"
-    # A Mac mini not yet updated prints an older, shorter line: show its CPU and memory, not its Claude numbers
-    [[ -n $prw && -z ${extra-} ]] || five="" r5="" week="" rw="" pfive="" pr5="" pweek="" prw=""
+    # A Mac mini not yet updated prints an older, shorter line
+    [[ -n $prw && -z $extra ]] || five="" r5="" week="" rw="" pfive="" pr5="" pweek="" prw=""
     if [[ $idle =~ ^[0-9]+(\.[0-9]+)?$ && $free =~ ^[0-9]+$ ]]; then
       cpu=$(awk -v i="$idle" 'BEGIN {printf "%d", 100 - i + 0.5}')
       rows+=("{\"name\":\"$machine\",\"up\":true,\"cpu\":$cpu,\"mem\":$((100 - free)),$(
@@ -42,7 +40,7 @@ while :; do
       rows+=("{\"name\":\"$machine\",\"up\":false}")
     fi
   done
-  # Written to a temporary file then moved, so the page never loads half a file
+  # Moved into place, so the page never loads half a file
   { printf 'window.FLEET = {"t":%s,"machines":[' "$(date +%s)"; (IFS=,; printf '%s' "${rows[*]}"); printf ']};\n'; } >"$output.tmp" &&
     mv "$output.tmp" "$output"
   sleep 5
