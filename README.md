@@ -36,7 +36,7 @@ On your laptop:
 
 ## 4. Dashboard (mini-1 only)
 
-1. Log in as `stats`. The dashboard opens in Chrome, full screen. If the picture looks squashed, see "Dashboard squashed" in Daily use.
+1. Log in as `stats`. The dashboard opens in Chrome, full screen.
 2. Plug the screen's USB cable into the power strip, not into the Mac mini.
 3. Unplug the keyboard and mouse.
 
@@ -69,7 +69,6 @@ Next Mac mini: step 2.
 | Restart a Mac mini                                    | `ssh admin@mini-<n>`, then `sudo fdesetup authrestart`                                                                                                                      |
 | See a Mac mini's screen                               | `open vnc://mini-<n>`, log in as `admin`, then Apple menu → **Log Out admin**                                                                                               |
 | After a power cut                                     | Each Mac mini waits for a FileVault password. mini-1: log in as `stats`. The others: plug in a screen and keyboard, log in as `admin`, then Apple menu → **Log Out admin**. |
-| Dashboard squashed                                    | At mini-1, logged in as `stats`: System Settings → Displays → Advanced → Show resolutions as list → Show all resolutions → 1280 × 400                                       |
 | Update Tailscale, after a Tailscale security bulletin | At the Mac mini, logged in as `admin`, in Terminal: `brew unpin tailscale && brew upgrade tailscale && sudo brew services restart tailscale && brew pin tailscale`          |
 
 If `ssh admin@…` shows a Tailscale link, open it and log in.

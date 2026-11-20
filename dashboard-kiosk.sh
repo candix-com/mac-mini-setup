@@ -1,12 +1,8 @@
 #!/bin/bash
 # Shows the dashboard on mini-1's screen: Chrome, full screen, on dashboard.html. setup.sh runs it as stats at login,
 # and launchd starts it again if Chrome quits.
-# The screen is 1280x400, but its EDID also offers 1920x1080 and macOS picks that, which the screen squashes.
-# So this switches it to 1280x400 first.
-if ! /opt/homebrew/bin/displayplacer list | grep -q '^Resolution: 1280x400$'; then
-  id=$(/opt/homebrew/bin/displayplacer list | awk -F': ' '/^Persistent screen id:/ {print $2; exit}')
-  /opt/homebrew/bin/displayplacer "id:$id res:1280x400 hz:60 color_depth:8 scaling:off origin:(0,0) degree:0"
-fi
+# The screen is 1280x400 and macOS sends it 1920x1080 (it refuses desktops under about 540 pixels tall),
+# which the screen squashes. dashboard.html stretches itself by the same amount, so it comes out right.
 # No keyboard at the screen, so nothing may open a dialog: the two Keychain flags stop Chrome asking for
 # Keychain access on its first start.
 exec "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --kiosk \

@@ -105,8 +105,6 @@ sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini
 # dev saves its Claude usage here for mini-stats. Made as dev, so root never writes through a path dev controls.
 sudo -u dev mkdir -p -m 755 /Users/Shared/claude-usage
 if [[ $number == 1 ]]; then
-  # The screen needs displayplacer to be switched to its real resolution (dashboard-kiosk.sh)
-  HOMEBREW_NO_INSTALL_UPGRADE=1 brew install displayplacer
   fetch machines-dashboard.sh "$temporary/dashboard"
   sudo install -o root -g wheel -m 755 "$temporary/dashboard" /usr/local/bin/machines-dashboard
   fetch dashboard-kiosk.sh "$temporary/kiosk"
