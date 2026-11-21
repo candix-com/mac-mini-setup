@@ -53,11 +53,6 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # Installing a missing one can still upgrade what it depends on.
 HOMEBREW_NO_INSTALL_UPGRADE=1 brew install tailscale tmux gh uv node pnpm colima docker docker-compose
 HOMEBREW_NO_INSTALL_UPGRADE=1 brew install --cask google-chrome
-# The quarantine makes Chrome's first start ask a question, with no keyboard at the dashboard to answer it.
-# Removing it skips Gatekeeper, so this runs Gatekeeper's check first and checks that the app is Google's.
-spctl --assess --type execute "/Applications/Google Chrome.app"
-codesign --verify -R='anchor apple generic and certificate leaf[subject.OU] = "EQHXZ8M8AV"' "/Applications/Google Chrome.app"
-sudo xattr -rd com.apple.quarantine "/Applications/Google Chrome.app"
 brew pin tailscale   # update it at the Mac mini, so a bad update can't cut you off
 sudo brew services start tailscale
 if ! tailscale status >/dev/null 2>&1; then
@@ -106,6 +101,11 @@ sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini
 # dev saves its Claude usage here for mini-stats. Made as dev, so root never writes through a path dev controls.
 sudo -u dev mkdir -p -m 755 /Users/Shared/claude-usage
 if [[ $number == 1 ]]; then
+  # The quarantine makes Chrome's first start ask a question, with no keyboard at the dashboard to answer it.
+  # Removing it skips Gatekeeper, so this runs Gatekeeper's check first and checks that the app is Google's.
+  spctl --assess --type execute "/Applications/Google Chrome.app"
+  codesign --verify -R='anchor apple generic and certificate leaf[subject.OU] = "EQHXZ8M8AV"' "/Applications/Google Chrome.app"
+  sudo xattr -rd com.apple.quarantine "/Applications/Google Chrome.app"
   fetch dashboard-data.sh "$temporary/dashboard-data"
   sudo install -o root -g wheel -m 755 "$temporary/dashboard-data" /usr/local/bin/dashboard-data
   fetch dashboard-kiosk.sh "$temporary/kiosk"
@@ -135,11 +135,11 @@ else
 fi
 
 step "6/7 dev: shell, Claude Code and GitHub"
-# Both Claude setups read these, and dev can't change them (NOTES.md). No "Generated with Claude Code" line or
-# Co-authored-by trailer, and no auto memory: lessons go in the shared skills. Only the agent runs maintainer and
-# the two plugins it calls, so this machine enables them, not a repository.
 fetch claude-usage-statusline.sh "$temporary/statusline"
 sudo install -o root -g wheel -m 755 "$temporary/statusline" /usr/local/bin/claude-usage-statusline
+# Both Claude setups read managed-settings.json, and dev can't change it (NOTES.md). No "Generated with Claude Code"
+# line or Co-authored-by trailer, and no auto memory: lessons go in the shared skills. Only the agent runs maintainer
+# and the two plugins it calls, so this machine enables them, not a repository.
 sudo mkdir -p "/Library/Application Support/ClaudeCode"
 sudo tee "/Library/Application Support/ClaudeCode/managed-settings.json" >/dev/null <<'EOF'
 {
@@ -182,8 +182,8 @@ for setup in work personal; do
   printf '#!/bin/bash\nexport CLAUDE_CONFIG_DIR="$HOME/.claude-%s"\nexec "$HOME/.local/bin/claude" "$@"\n' "$setup" > ~/.local/bin/claude-$setup
   chmod 755 ~/.local/bin/claude-$setup
 done
-# Plain claude would start a third, unlabeled setup, so it prints the two commands instead. With CLAUDE_CONFIG_DIR
-# set, as inside claude-work or claude-personal, it runs claude.
+# Plain claude would start a third, unlabeled setup, so it prints the two commands instead. In a shell that a
+# claude-work or claude-personal session starts, CLAUDE_CONFIG_DIR is set, so it runs claude.
 grep -qs '^claude()' ~/.zshrc ||
   echo 'claude() { [[ -n $CLAUDE_CONFIG_DIR ]] && { command claude "$@"; return; }; echo "Type claude-work or claude-personal." >&2; return 1; }' >> ~/.zshrc
 EOF
@@ -213,26 +213,29 @@ git config --global commit.gpgsign true
 [[ -d ~/.candix-skills ]] || $gh repo clone candix-com/skills ~/.candix-skills -- -q
 EOF
 
-# Pulls the candix skills every 5 minutes, as dev, with nobody logged in, so each new session loads the latest
-sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null <<'EOF'
+# Every 5 minutes, as dev, with nobody logged in, resets the candix skills to GitHub's main, so each new session
+# loads the latest reviewed skills and nothing edited or checked out in the clone
+sudo tee /Library/LaunchDaemons/com.candix.skills.plist >/dev/null <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>EnvironmentVariables</key>
   <dict><key>HOME</key><string>/Users/dev</string></dict>
-  <key>Label</key><string>com.candix.claude-marketplaces</string>
+  <key>Label</key><string>com.candix.skills</string>
   <key>ProgramArguments</key>
-  <array><string>/usr/bin/git</string><string>-C</string><string>/Users/dev/.candix-skills</string><string>pull</string><string>-q</string><string>--ff-only</string></array>
-  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
-  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
+  <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q origin main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qfdx</string></array>
+  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/candix-skills.log</string>
+  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/candix-skills.log</string>
   <key>StartInterval</key><integer>300</integer>
   <key>UserName</key><string>dev</string>
 </dict>
 </plist>
 EOF
-sudo launchctl print system/com.candix.claude-marketplaces >/dev/null 2>&1 ||
-  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.claude-marketplaces.plist
+# Reloaded on every run, so a changed plist takes effect. bootout returns before the job is gone.
+sudo launchctl bootout system/com.candix.skills 2>/dev/null || true
+while sudo launchctl print system/com.candix.skills >/dev/null 2>&1; do sleep 1; done
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.skills.plist
 
 # Last, because turning on the firewall cuts the internet for a few seconds
 step "7/7 Settings"
