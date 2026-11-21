@@ -15,7 +15,8 @@ echo '{"Self":{"DNSName":"mini-1.t.ts.net.","Tags":["tag:mini"]},"Peer":{
   "c":{"DNSName":"mini-4.t.ts.net.","Tags":["tag:mini"]},
   "d":{"DNSName":"mini-5.t.ts.net.","Tags":["tag:mini"]},
   "e":{"DNSName":"x\"</script>.t.ts.net.","Tags":["tag:mini"]},
-  "f":{"DNSName":"mini-6.t.ts.net.","Tags":["tag:mini"]}}}'
+  "f":{"DNSName":"mini-6.t.ts.net.","Tags":["tag:mini"]},
+  "g":{"DNSName":"mini-7.t.ts.net.","Tags":["tag:mini"]}}}'
 EOF
 cat >"$temporary/bin/ssh" <<'EOF'
 #!/bin/bash
@@ -30,11 +31,12 @@ echo '93.2 45 12 30' >"$temporary/peer/mini-3"
 echo '{"claude":{},"cpu":5,"memory":6,"name":"mini-1","up":false}' >"$temporary/peer/mini-5"
 echo null >"$temporary/peer/mini-6"
 mkfifo "$temporary/peer/mini-4"   # never answers
+mkdir "$temporary/usage" && mkfifo "$temporary/usage/latest-stuck.json"   # this Mac's mini-stats never answers
 HOME=$temporary PATH=$temporary/bin:$PATH TMPDIR=$temporary bash dashboard-data.sh &
 collector=$!
 disown
 for _ in {1..100}; do [[ -f $temporary/.dashboard/data.js ]] && break; sleep 0.1; done
 diff <(sed 's/"timeSeconds":[0-9]*/"timeSeconds":0/' "$temporary/.dashboard/data.js") - <<'EOF'
-window.FLEET = {"machines":[{"claude":{},"cpu":10,"memory":60,"name":"mini-1","up":true},{"claude":{},"cpu":1,"memory":2,"name":"mini-2","up":true},{"name":"mini-3","up":false},{"name":"mini-4","up":false},{"claude":{},"cpu":5,"memory":6,"name":"mini-5","up":true},{"name":"mini-6","up":false}],"timeSeconds":0};
+window.FLEET = {"machines":[{"name":"mini-1","up":false},{"claude":{},"cpu":1,"memory":2,"name":"mini-2","up":true},{"name":"mini-3","up":false},{"name":"mini-4","up":false},{"claude":{},"cpu":5,"memory":6,"name":"mini-5","up":true},{"name":"mini-6","up":false},{"name":"mini-7","up":false}],"timeSeconds":0};
 EOF
 echo "test-dashboard: ok"

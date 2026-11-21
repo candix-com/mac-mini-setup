@@ -17,7 +17,7 @@ while :; do
     if [[ $machine == "$self" ]]; then
       timeout 4 mini-stats >"$temporary/$machine" 2>/dev/null &   # a Mac can't reach its own Tailscale SSH
     else
-      timeout 4 ssh -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$machine" >"$temporary/$machine" 2>/dev/null &
+      timeout 4 ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$machine" >"$temporary/$machine" 2>/dev/null &
     fi
   done
   wait

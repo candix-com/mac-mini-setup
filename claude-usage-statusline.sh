@@ -1,10 +1,9 @@
 #!/bin/bash
 # The status line of every Claude setup (setup.sh installs it). It also saves the setup's usage limits for mini-stats.
 input=$(cat)
-# claude-work and claude-personal set CLAUDE_CONFIG_DIR to ~/.claude-work or ~/.claude-personal
-setup=${CLAUDE_CONFIG_DIR##*/.claude-}
-# $setup goes into a file name: any other CLAUDE_CONFIG_DIR, or none, saves no limits and shows no name
-[[ $setup =~ ^[a-z]+$ ]] || setup=""
+# claude-work and claude-personal set CLAUDE_CONFIG_DIR to ~/.claude-work or ~/.claude-personal. Any other value, or
+# none, saves no limits and shows no name, since the name goes into a file name.
+[[ $CLAUDE_CONFIG_DIR =~ /\.claude-([a-z]+)$ ]] && setup=${BASH_REMATCH[1]}
 
 # Claude Code sends the limits (Pro and Max plans) after the session's first reply
 limits=$(jq -c '.rate_limits // empty' <<<"$input")
