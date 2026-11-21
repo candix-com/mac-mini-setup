@@ -1,17 +1,15 @@
 #!/bin/bash
-# Prints CPU idle %, memory free %, then for Work and Personal: 5-hour %, its reset, weekly %, its reset (epoch seconds),
-# "-" when unknown. machines-dashboard.sh reads it.
+# Prints this Mac's CPU %, memory % and each Claude setup's usage limits as JSON. dashboard-data.sh reads it.
 # setup.sh installs it, and makes it the stats user's only shell on every Mac mini but mini-1.
 idle=$(/usr/bin/top -l 2 -n 0 -s 1 | /usr/bin/awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
 free=$(/usr/bin/memory_pressure -Q | /usr/bin/awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')
-limits=""
-for profile in work personal; do
-  # A window whose reset time has passed is back to 0%
-  usage=$(/usr/bin/jq -r '[.five_hour, .seven_day]
-    | map(if . == null then "-", "-"
-          elif (.resets_at // 0) > now then (.used_percentage | floor | tostring), (.resets_at | floor | tostring)
-          else "0", "-" end)
-    | join(" ")' "/Users/Shared/claude-usage/latest-$profile.json" 2>/dev/null)
-  limits+=" ${usage:-- - - -}"
-done
-echo "$idle $free$limits"
+shopt -s nullglob
+# A window whose reset time has passed is back to 0%
+/usr/bin/jq -cn --argjson idle "$idle" --argjson free "$free" '{
+  cpu: (100 - $idle | round),
+  memory: (100 - $free),
+  claude: (reduce inputs as $limits ({}; .[input_filename | capture("latest-(?<setup>[a-z]+)[.]json$").setup] =
+    ($limits | [.five_hour, .seven_day]
+      | map(if .resets_at > now then [(.used_percentage | floor), (.resets_at | floor)] elif . then [0, null] else [null, null] end)
+      | {five: .[0][0], fiveReset: .[0][1], week: .[1][0], weekReset: .[1][1]})))
+}' /Users/Shared/claude-usage/latest-*.json </dev/null
