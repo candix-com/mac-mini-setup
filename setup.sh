@@ -5,9 +5,9 @@ set -euo pipefail
 
 fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/$1" -o "$2"; }
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
-# Writes the LaunchDaemon $1, which runs as dev, from the plist keys on stdin as JSON members, and reloads it when its
-# plist changed. It logs outside dev's home, where dev can't plant a symlink for launchd to follow. bootout returns
-# before the job is gone.
+# Writes the LaunchDaemon $1, which runs as dev, from the plist keys on stdin as JSON members. It loads the job when
+# its plist changed or launchd hasn't loaded it. It logs outside dev's home, where dev can't plant a symlink for
+# launchd to follow.
 daemon() {
   plutil -convert xml1 -o "$temporary/$1.plist" - <<EOF
 {"Label": "$1", "StandardErrorPath": "/Library/Logs/$1.log", "StandardOutPath": "/Library/Logs/$1.log", "UserName": "dev", $(cat)}
@@ -15,6 +15,7 @@ EOF
   cmp -s "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist" && sudo launchctl print "system/$1" >/dev/null 2>&1 && return
   sudo install -m 644 "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist"
   sudo launchctl bootout "system/$1" 2>/dev/null || true
+  # bootout returns before the job is gone
   while sudo launchctl print "system/$1" >/dev/null 2>&1; do sleep 1; done
   sudo launchctl bootstrap system "/Library/LaunchDaemons/$1.plist"
 }
@@ -198,13 +199,15 @@ git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
 # Both setups load the candix plugins in place from this clone (managed-settings.json). It is private, so it is
 # cloned after the GitHub login.
-[[ -d ~/.candix-skills ]] || $gh repo clone candix-com/skills ~/.candix-skills -- -q
+[[ -d ~/.candix-skills ]] || $gh repo clone candix-com/skills ~/.candix-skills -- -q --recurse-submodules
 EOF
 
 # Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
-# Each new session then loads the latest skills, and an edit or branch left in the clone doesn't last.
+# Each new session then loads the latest skills, and an edit or branch left in the clone doesn't last. It fetches by
+# URL, not origin, so a changed remote doesn't last either, and clean's second -f removes nested repositories too.
+# Plugins kept in submodules, such as cloudflare, are checked out and reset the same way.
 daemon com.candix.skills <<'EOF'
-"ProgramArguments": ["/bin/sh", "-c", "cd /Users/dev/.candix-skills && /usr/bin/git fetch -q https://github.com/candix-com/skills.git main && /usr/bin/git checkout -q --force --detach FETCH_HEAD && /usr/bin/git clean -qffdx"],
+"ProgramArguments": ["/bin/sh", "-c", "cd /Users/dev/.candix-skills && /usr/bin/git fetch -q https://github.com/candix-com/skills.git main && /usr/bin/git checkout -q --force --detach FETCH_HEAD && /usr/bin/git clean -qffdx && /usr/bin/git submodule sync -q && /usr/bin/git submodule update -q --init --force --checkout && /usr/bin/git submodule foreach -q '/usr/bin/git clean -qffdx'"],
 "StartInterval": 300
 EOF
 

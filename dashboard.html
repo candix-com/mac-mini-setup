@@ -14,8 +14,8 @@
 }
 *{box-sizing:border-box}
 html{overflow:hidden;background:var(--background)}
-/* Laid out at the panel's 1280x400, then stretched to fill the window. macOS sends the panel 1920x1080, which the
-   panel squashes back, and the stretch cancels that. */
+/* macOS sends the 1280x400 panel 1920x1080, which the panel squashes to fit. The page is laid out at 1280x400 and
+   stretched by the same factors, so the two cancel out. */
 body{transform-origin:0 0;transform:scale(calc(100vw / 1280px),calc(100vh / 400px));margin:0;width:1280px;height:400px;color:var(--text);
   font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .number{font-family:var(--monospace);letter-spacing:-.03em}
@@ -164,19 +164,6 @@ const formatAgo = (seconds) => {
 };
 
 /* -----------------------------------------------------------------------------
-/* formatDay
-/* -------------------------------------------------------------------------- */
-
-const formatDay = (epochSeconds) => {
-  return new Date(epochSeconds * MILLISECONDS_PER_SECOND)
-    .toLocaleString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      weekday: 'short',
-    });
-};
-
-/* -----------------------------------------------------------------------------
 /* formatReset
 /* -------------------------------------------------------------------------- */
 
@@ -263,15 +250,13 @@ const render = () => {
 
     if (!up) continue;
 
-    const cpuBar = card.querySelector('.cpu-bar');
-
     const memoryBar = card.querySelector('.memory-bar');
 
     card.querySelector('.cpu span').textContent = machine.cpu;
 
     card.querySelector('.memory span').textContent = machine.memory;
 
-    cpuBar.style.width = machine.cpu + '%';
+    card.querySelector('.cpu-bar').style.width = machine.cpu + '%';
 
     memoryBar.style.width = machine.memory + '%';
 
@@ -316,7 +301,14 @@ const render = () => {
         continue;
       }
 
-      weekResetLabel.textContent = limits.weekResetSeconds != null ? formatDay(limits.weekResetSeconds) : '';
+      weekResetLabel.textContent =
+        limits.weekResetSeconds != null
+          ? new Date(limits.weekResetSeconds * MILLISECONDS_PER_SECOND).toLocaleString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit',
+              weekday: 'short',
+            })
+          : '';
 
       bar.style.width = limits.week + '%';
 
