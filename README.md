@@ -37,7 +37,7 @@ On your laptop:
 
 ## 4. Dashboard (mini-1 only)
 
-1. Log in as `stats`. The dashboard opens in Chrome, full screen.
+1. Log in as `stats`. The dashboard opens in Chrome, full screen. If Chrome first asks whether to open it, click **Open**.
 2. Plug the screen's USB cable into the power strip, not into the Mac mini.
 3. Unplug the keyboard and mouse.
 

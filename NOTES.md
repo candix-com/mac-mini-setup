@@ -10,7 +10,7 @@
 - The dashboard is `dashboard.html` in Chrome, full screen, on mini-1. It lists the devices tagged `tag:mini`, so a new Mac mini shows up on its own. It shows six at most, in two rows of three once there are more than three.
 - Every 5 seconds, `dashboard-data.sh` writes each Mac mini's numbers to `data.js`. The page shows them as text, never as HTML.
 - The dashboard screen is 1280×400. macOS refuses desktops under about 540 pixels tall, so it sends 1920×1080 and the screen squashes it. The page is laid out at 1280×400 and stretched to fill the window, which cancels the squash.
-- Nobody can answer a dialog at the dashboard screen. `setup.sh` runs Gatekeeper's check on Chrome and checks that it is Google's, then removes its quarantine, so Chrome's first start asks nothing. Chrome starts in kiosk mode, which shows no restore prompt after a power cut, and with a flag that skips Keychain access.
+- Nobody can answer a dialog at the dashboard screen. If Chrome's first start asks whether to open an app downloaded from the internet, click **Open** once over Screen Sharing. Chrome starts in kiosk mode, which shows no restore prompt after a power cut, and with a flag that skips Keychain access.
 - Wi-Fi is off: the Mac minis use Ethernet.
 - The dashboard screen connects to mini-1 by HDMI only and takes USB power from the power strip, so it can't act as a keyboard.
 - macOS updates restart the Mac, so you install them yourself, with `-R` or `fdesetup authrestart`, which unlock FileVault once on the way back up.
