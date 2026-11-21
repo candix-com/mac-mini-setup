@@ -5,6 +5,20 @@ set -euo pipefail
 
 fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/$1" -o "$2"; }
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
+# Writes the LaunchDaemon $1, which runs as dev, from the plist keys on stdin as JSON members. It loads the job when
+# its plist changed or launchd hasn't loaded it. It logs outside dev's home, where dev can't plant a symlink for
+# launchd to follow.
+daemon() {
+  plutil -convert xml1 -o "$temporary/$1.plist" - <<EOF
+{"Label": "$1", "StandardErrorPath": "/Library/Logs/$1.log", "StandardOutPath": "/Library/Logs/$1.log", "UserName": "dev", $(cat)}
+EOF
+  cmp -s "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist" && sudo launchctl print "system/$1" >/dev/null 2>&1 && return
+  sudo install -m 644 "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist"
+  sudo launchctl bootout "system/$1" 2>/dev/null || true
+  # bootout returns before the job is gone
+  while sudo launchctl print "system/$1" >/dev/null 2>&1; do sleep 1; done
+  sudo launchctl bootstrap system "/Library/LaunchDaemons/$1.plist"
+}
 
 fdesetup isactive >/dev/null || { echo "Turn on FileVault first: System Settings > Privacy & Security > FileVault."; exit 1; }
 read -rp "Which Mac mini is this? Type its number (1 is the one with the screen): " number </dev/tty
@@ -67,32 +81,16 @@ sudo tailscale serve --bg --tcp 5900 tcp://localhost:5900 >/dev/null
 
 step "4/7 Docker"
 # Colima runs Docker in a Linux VM, as dev, from boot, with nobody logged in (NOTES.md)
-sudo -u dev mkdir -p /Users/dev/Library/Logs
 # The job runs colima, and Colima runs limactl and docker, from the PATH, which launchd sets without /opt/homebrew/bin.
 # Each launch force-stops the VM first. A VM left running by a failed start would otherwise
 # make colima start exit at once.
-sudo tee /Library/LaunchDaemons/com.candix.colima.plist >/dev/null <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
-  <key>KeepAlive</key><true/>
-  <key>Label</key><string>com.candix.colima</string>
-  <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>-c</string><string>colima stop --force; exec colima start --foreground</string></array>
-  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/colima.log</string>
-  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/colima.log</string>
-  <key>UserName</key><string>dev</string>
-</dict>
-</plist>
+daemon com.candix.colima <<'EOF'
+"EnvironmentVariables": {"PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"}, "KeepAlive": true,
+"ProgramArguments": ["/bin/sh", "-c", "colima stop --force; exec colima start --foreground"]
 EOF
-sudo launchctl print system/com.candix.colima >/dev/null 2>&1 ||
-  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.colima.plist
 # The first start downloads the VM, so it can take a few minutes
 for _ in {1..300}; do sudo -u dev -H docker info >/dev/null 2>&1 && break; sleep 1; done
-sudo -u dev -H docker info >/dev/null 2>&1 || { echo "Docker didn't start. Colima's log: sudo cat /Users/dev/Library/Logs/colima.log"; exit 1; }
+sudo -u dev -H docker info >/dev/null 2>&1 || { echo "Docker didn't start. Colima's log: sudo cat /Library/Logs/com.candix.colima.log"; exit 1; }
 
 step "5/7 Dashboard"
 fetch mini-stats "$temporary/mini-stats"
@@ -101,22 +99,24 @@ sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini
 # dev saves its Claude usage here for mini-stats. Made as dev, so root never writes through a path dev controls.
 sudo -u dev mkdir -p -m 755 /Users/Shared/claude-usage
 if [[ $number == 1 ]]; then
-  fetch machines-dashboard.sh "$temporary/dashboard"
-  sudo install -o root -g wheel -m 755 "$temporary/dashboard" /usr/local/bin/machines-dashboard
-  # Opens the dashboard in Terminal when stats logs in
-  sudo -u stats -H mkdir -p /Users/stats/Library/LaunchAgents
-  sudo -u stats -H tee /Users/stats/Library/LaunchAgents/com.candix.dashboard.plist >/dev/null <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.candix.dashboard</string>
-  <key>ProgramArguments</key>
-  <array><string>/usr/bin/open</string><string>-a</string><string>Terminal</string><string>/usr/local/bin/machines-dashboard</string></array>
-  <key>RunAtLoad</key><true/>
-</dict>
-</plist>
+  # The quarantine makes Chrome's first start ask a question, with no keyboard at the dashboard to answer it.
+  # Removing it skips Gatekeeper, so this runs Gatekeeper's check first and checks that the app is Google's.
+  spctl --assess --type execute "/Applications/Google Chrome.app"
+  codesign --verify -R='anchor apple generic and certificate leaf[subject.OU] = "EQHXZ8M8AV"' "/Applications/Google Chrome.app"
+  sudo xattr -rd com.apple.quarantine "/Applications/Google Chrome.app"
+  fetch dashboard.html "$temporary/dashboard.html"
+  sudo -u stats -H mkdir -p /Users/stats/.dashboard /Users/stats/Library/LaunchAgents
+  sudo install -o stats -m 644 "$temporary/dashboard.html" /Users/stats/.dashboard/dashboard.html
+  # At stats' login: dashboard-data collects the numbers, dashboard shows them in Chrome
+  for job in dashboard dashboard-data; do
+    fetch "$job.sh" "$temporary/$job"
+    sudo install -o root -g wheel -m 755 "$temporary/$job" "/usr/local/bin/$job"
+    # launchd's PATH leaves out /opt/homebrew/bin and /usr/local/bin, where tailscale and mini-stats are
+    sudo -u stats -H plutil -convert xml1 -o "/Users/stats/Library/LaunchAgents/com.candix.$job.plist" - <<EOF
+{"EnvironmentVariables": {"PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"}, "KeepAlive": true,
+ "Label": "com.candix.$job", "ProgramArguments": ["/usr/local/bin/$job"]}
 EOF
+  done
   sudo -u stats -H defaults -currentHost write com.apple.screensaver idleTime -int 0
 else
   # On the other Mac minis, a login as stats can only print the numbers
@@ -124,6 +124,23 @@ else
 fi
 
 step "6/7 dev: shell, Claude Code and GitHub"
+fetch claude-usage-statusline.sh "$temporary/statusline"
+sudo install -o root -g wheel -m 755 "$temporary/statusline" /usr/local/bin/claude-usage-statusline
+# Both Claude setups read managed-settings.json, and dev can't change it (NOTES.md). Attribution is off, so PRs get
+# no "Generated with Claude Code" line and commits no Co-authored-by trailer. Auto memory is off because lessons go
+# in the shared skills. Only the agent runs maintainer and the two plugins it calls, so this machine enables them,
+# not a repository.
+sudo mkdir -p "/Library/Application Support/ClaudeCode"
+sudo tee "/Library/Application Support/ClaudeCode/managed-settings.json" >/dev/null <<'EOF'
+{
+  "attribution": false,
+  "autoMemoryEnabled": false,
+  "enabledPlugins": {"engineering@candix": true, "maintainer@candix": true, "reviewers@candix": true},
+  "env": {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"},
+  "extraKnownMarketplaces": {"candix": {"source": {"path": "/Users/dev/.candix-skills", "source": "directory"}}},
+  "statusLine": {"command": "/usr/local/bin/claude-usage-statusline", "type": "command"}
+}
+EOF
 sudo -u dev -H /bin/bash -s <<'EOF'
 set -euo pipefail
 cd ~
@@ -140,7 +157,6 @@ grep -qs 'umask 077' ~/.zshenv || echo 'umask 077' >> ~/.zshenv
 [[ -x ~/.local/bin/claude ]] || curl -fsSL https://claude.ai/install.sh | bash
 # Match the whole line: oh-my-zsh's .zshrc already mentions .local/bin in a comment
 grep -qsxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-mkdir -p ~/.claude
 # Lets dev run docker compose: the docker CLI looks for its plugins in ~/.docker/cli-plugins
 mkdir -p ~/.docker/cli-plugins
 ln -sf /opt/homebrew/lib/docker/cli-plugins/docker-compose ~/.docker/cli-plugins/docker-compose
@@ -152,17 +168,13 @@ grep -qsxF 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' ~/.zs
   echo 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' >> ~/.zshenv
 grep -qsxF 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' ~/.zshenv ||
   echo 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' >> ~/.zshenv
-curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/claude-usage-statusline.sh -o ~/.claude/claude-usage-statusline.sh
-chmod 755 ~/.claude/claude-usage-statusline.sh
-[[ -f ~/.claude/settings.json ]] ||
-  printf '{\n  "statusLine": {"type": "command", "command": "~/.claude/claude-usage-statusline.sh"}\n}\n' > ~/.claude/settings.json
-# No "Generated with Claude Code" line in PR descriptions and no Co-authored-by trailer in commits.
-# No auto memory: lessons go in the shared skills, not in one machine's memory.
-# No usage data or error reports go to Anthropic. Added to the existing file too, so a rerun turns them off on a Mac mini set up before.
-# Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: it also stops Claude Code from updating itself.
-# The maintainer plugin and the two it calls: only the agent runs it, so this machine enables them, not a repository.
-settings=$(/usr/bin/jq '.attribution = false | .autoMemoryEnabled = false | .env += {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"} | .extraKnownMarketplaces.candix = {"source": {"source": "github", "repo": "candix-com/skills"}, "autoUpdate": true} | .enabledPlugins += {"engineering@candix": true, "reviewers@candix": true, "maintainer@candix": true}' ~/.claude/settings.json)
-printf '%s\n' "$settings" > ~/.claude/settings.json
+for setup in work personal; do
+  printf '#!/bin/bash\nexport CLAUDE_CONFIG_DIR="$HOME/.claude-%s"\nexec "$HOME/.local/bin/claude" "$@"\n' "$setup" > ~/.local/bin/claude-$setup
+  chmod 755 ~/.local/bin/claude-$setup
+done
+# Plain claude would start a third, unlabeled setup, so it prints the two commands instead. In a shell that a
+# claude-work or claude-personal session starts, CLAUDE_CONFIG_DIR is set, so it runs claude.
+printf '%s\n' 'claude() { [[ -n $CLAUDE_CONFIG_DIR ]] && { command claude "$@"; return; }; echo "Type claude-work or claude-personal." >&2; return 1; }' > ~/.oh-my-zsh/custom/claude.zsh
 EOF
 
 if ! sudo -u dev -H /opt/homebrew/bin/gh auth status >/dev/null 2>&1; then
@@ -185,29 +197,19 @@ fi
 git config --global gpg.format ssh
 git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
+# Both setups load the candix plugins in place from this clone (managed-settings.json). It is private, so it is
+# cloned after the GitHub login.
+[[ -d ~/.candix-skills ]] || $gh repo clone candix-com/skills ~/.candix-skills -- -q --recurse-submodules
 EOF
 
-# Claude Code refreshes plugin marketplaces only now and then, so new sessions ran old candix skills.
-# This pulls every marketplace every 5 minutes, as dev, with nobody logged in. git comes from the PATH.
-sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>EnvironmentVariables</key>
-  <dict><key>HOME</key><string>/Users/dev</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
-  <key>Label</key><string>com.candix.claude-marketplaces</string>
-  <key>ProgramArguments</key>
-  <array><string>/Users/dev/.local/bin/claude</string><string>plugin</string><string>marketplace</string><string>update</string></array>
-  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
-  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
-  <key>StartInterval</key><integer>300</integer>
-  <key>UserName</key><string>dev</string>
-</dict>
-</plist>
+# Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
+# Each new session then loads the latest skills, and an edit or branch left by mistake doesn't last. It fetches by
+# URL, not origin, so a changed remote is undone too. clean's second -f removes nested repositories too. Submodules
+# are checked out and reset the same way.
+daemon com.candix.skills <<'EOF'
+"ProgramArguments": ["/bin/sh", "-c", "cd /Users/dev/.candix-skills && /usr/bin/git fetch -q https://github.com/candix-com/skills.git main && /usr/bin/git checkout -q --force --detach FETCH_HEAD && /usr/bin/git clean -qffdx && /usr/bin/git submodule sync -q && /usr/bin/git submodule update -q --init --force --checkout && /usr/bin/git submodule foreach -q '/usr/bin/git clean -qffdx'"],
+"StartInterval": 300
 EOF
-sudo launchctl print system/com.candix.claude-marketplaces >/dev/null 2>&1 ||
-  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.claude-marketplaces.plist
 
 # Last, because turning on the firewall cuts the internet for a few seconds
 step "7/7 Settings"
@@ -223,6 +225,11 @@ until sudo launchctl print system/com.apple.screensharing >/dev/null 2>&1; do
   open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
   read -rp "Then press Enter. " </dev/tty
 done
+# Screen Sharing lets in only this group's members, the admins. On mini-1, stats too, to reach the dashboard.
+if [[ $number == 1 ]]; then
+  sudo dseditgroup -o edit -a stats -t user com.apple.access_screensharing ||
+    echo "Couldn't let stats in over Screen Sharing: System Settings > General > Sharing > Screen Sharing (i) > add Stats."
+fi
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on >/dev/null
 

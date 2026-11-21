@@ -1,13 +1,16 @@
 #!/bin/bash
-# dev's Claude Code status line (setup.sh installs it). It also saves the usage limits to
-# /Users/Shared/claude-usage/latest.json, which mini-stats reads.
+# The status line of every Claude setup (setup.sh installs it). It also saves the setup's usage limits for mini-stats.
 input=$(cat)
+# The setup's name is the suffix of CLAUDE_CONFIG_DIR's folder (~/.claude-work, ~/.claude-personal). It goes into a
+# file name, so only lowercase letters count. With no match, the line saves no limits and shows no name.
+setup=""
+[[ $CLAUDE_CONFIG_DIR =~ /\.claude-([a-z]+)$ ]] && setup=${BASH_REMATCH[1]}
 
 # Claude Code sends the limits (Pro and Max plans) after the session's first reply
 limits=$(jq -c '.rate_limits // empty' <<<"$input")
-if [[ -n $limits ]] && temporary=$(mktemp /Users/Shared/claude-usage/latest.XXXXXX 2>/dev/null); then
-  printf '%s\n' "$limits" >"$temporary" && chmod 644 "$temporary" && mv "$temporary" /Users/Shared/claude-usage/latest.json
+if [[ -n $limits && -n $setup ]] && temporary=$(mktemp /Users/Shared/claude-usage/latest.XXXXXX 2>/dev/null); then
+  printf '%s\n' "$limits" >"$temporary" && chmod 644 "$temporary" && mv "$temporary" "/Users/Shared/claude-usage/latest-$setup.json"
 fi
 
-# The status line itself: model and context used
-jq -r '"[\(.model.display_name)] \(.context_window.used_percentage // 0 | floor)% context"' <<<"$input"
+# The status line itself: setup, model and context used
+jq -r --arg setup "$setup" '(if $setup == "" then "" else "\($setup) · " end) + "[\(.model.display_name)] \(.context_window.used_percentage // 0 | floor)% context"' <<<"$input"

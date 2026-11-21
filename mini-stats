@@ -1,9 +1,17 @@
 #!/bin/bash
-# Prints this Mac's CPU idle %, memory free %, Claude 5-hour % and Claude weekly %, for machines-dashboard.
+# Prints this Mac's CPU and memory use in percent, and each Claude setup's usage limits, as JSON. dashboard-data.sh
+# reads it.
 # setup.sh installs it, and makes it the stats user's only shell on every Mac mini but mini-1.
-idle=$(/usr/bin/top -l 2 -n 0 -s 1 | /usr/bin/awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
-free=$(/usr/bin/memory_pressure -Q | /usr/bin/awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')
-limits=$(/usr/bin/jq -r '[.five_hour, .seven_day]
-  | map(if (.resets_at // 0) > now then (.used_percentage | floor | tostring) else "-" end)
-  | join(" ")' /Users/Shared/claude-usage/latest.json 2>/dev/null)
-echo "$idle $free ${limits:-- -}"
+idle=$(top -l 2 -n 0 -s 1 | awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
+free=$(memory_pressure -Q | awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')
+shopt -s nullglob
+# A window past its reset, or one Claude Code dropped at its reset, is back to 0%
+# With no usage files, nullglob leaves jq no file to read, so </dev/null keeps it from reading stdin
+jq -cn --argjson idle "$idle" --argjson free "$free" '{
+  claude: (reduce inputs as $limits ({}; .[input_filename | capture("latest-(?<setup>[a-z]+)[.]json$").setup] =
+    ($limits | [.five_hour, .seven_day]
+      | map(if .resets_at > now then [(.used_percentage | floor), .resets_at] else [0, null] end)
+      | {five: .[0][0], fiveResetSeconds: .[0][1], week: .[1][0], weekResetSeconds: .[1][1]}))),
+  cpu: (100 - $idle | round),
+  memory: (100 - $free)
+}' "${CLAUDE_USAGE_DIRECTORY:-/Users/Shared/claude-usage}"/latest-*.json </dev/null
