@@ -8,7 +8,7 @@
 - The Mac minis are tagged in Tailscale. Tagged devices have no key expiry and don't belong to your account. The policy lets only you, from a Mac, log in as `dev`, or as `admin` after you log in to Tailscale again in the browser. mini-1 may log in to the others only as `stats`.
 - On every Mac mini but mini-1, the shell of `stats` is `mini-stats`, so logging in as `stats` prints its numbers as JSON and exits.
 - The dashboard is `dashboard.html` in Chrome, full screen, on mini-1. It lists the devices tagged `tag:mini`, so a new Mac mini shows up on its own. It shows six at most, in two rows of three once there are more than three.
-- Every 5 seconds, `dashboard-data.sh` writes each Mac mini's numbers to `data.js`. The page puts these values in its HTML, so the collector keeps only numbers, and host names made of lowercase letters, digits and hyphens.
+- Every 5 seconds, `dashboard-data.sh` writes each Mac mini's numbers to `data.js`. The page shows them as text, never as HTML.
 - The dashboard screen is 1280×400. macOS refuses desktops under about 540 pixels tall, so it sends 1920×1080 and the screen squashes it. The page is laid out at 1280×400 and stretched to fill the window, which cancels the squash.
 - Nobody can answer a dialog at the dashboard screen. `setup.sh` runs Gatekeeper's check on Chrome and checks that it is Google's, then removes its quarantine, so Chrome's first start asks nothing. Chrome starts in kiosk mode, which shows no restore prompt after a power cut, and with a flag that skips Keychain access.
 - Wi-Fi is off: the Mac minis use Ethernet.

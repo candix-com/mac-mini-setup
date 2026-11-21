@@ -11,7 +11,7 @@ temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
 
 while :; do
-  # The page puts host names in its HTML, so only letters, digits and hyphens get through
+  # Host names go into ssh and a file path, so only letters, digits and hyphens get through
   machines=($(tailscale_status | /usr/bin/jq -r '[.Self, (.Peer // {})[]][]
     | select((.Tags // []) | index("tag:mini")) | .DNSName | split(".")[0]' | grep -E '^[a-z0-9-]+$' | sort -V))
   for machine in "${machines[@]}"; do
@@ -23,12 +23,9 @@ while :; do
   done
   wait
 
-  # The page puts these values in its HTML, so jq passes on only the numbers from each machine
   for machine in "${machines[@]}"; do
-    /usr/bin/jq -nc --arg name "$machine" '(try (input | {name: $name, up: true, cpu: (.cpu | numbers),
-      memory: (.memory | numbers), claude: (.claude
-        | map_values(objects | {five, fiveReset, week, weekReset} | map_values(numbers // null)))})
-      catch null) // {name: $name, up: false}' "$temporary/$machine"
+    /usr/bin/jq -nc --arg name "$machine" '(try (input | objects + {name: $name, up: true}) catch null) // {name: $name, up: false}' \
+      "$temporary/$machine"
   done | /usr/bin/jq -sr --argjson time "$(date +%s)" '"window.FLEET = \({time: $time, machines: .});"' >"$output.tmp" &&
     mv "$output.tmp" "$output"   # moved into place, so the page never loads half a file
   sleep 5

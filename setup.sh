@@ -184,8 +184,7 @@ for setup in work personal; do
 done
 # Plain claude would start a third, unlabeled setup, so it prints the two commands instead. In a shell that a
 # claude-work or claude-personal session starts, CLAUDE_CONFIG_DIR is set, so it runs claude.
-grep -qs '^claude()' ~/.zshrc ||
-  echo 'claude() { [[ -n $CLAUDE_CONFIG_DIR ]] && { command claude "$@"; return; }; echo "Type claude-work or claude-personal." >&2; return 1; }' >> ~/.zshrc
+printf '%s\n' 'claude() { [[ -n $CLAUDE_CONFIG_DIR ]] && { command claude "$@"; return; }; echo "Type claude-work or claude-personal." >&2; return 1; }' > ~/.oh-my-zsh/custom/claude.zsh
 EOF
 
 if ! sudo -u dev -H /opt/homebrew/bin/gh auth status >/dev/null 2>&1; then

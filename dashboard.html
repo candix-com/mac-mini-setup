@@ -65,6 +65,7 @@ main.compact{grid-template-rows:1fr 1fr}
 .week-bar{margin-top:8px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}
 .week-bar i{display:block;height:100%;border-radius:4px;background:var(--account);transition:width 1.2s cubic-bezier(.3,.7,.2,1),background .6s}
 .nodata .week{color:var(--faint)!important}
+.nodata .week small{display:none}
 .nodata .week-reset{color:var(--faint)}
 
 .off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -118,8 +119,8 @@ const build = (names) => {
       <div class="body">
         <div class="machine-header"><span class="dot"></span><span class="name"></span>
           <div class="system">
-            <div class="metric"><span class="value number cpu">—</span><span class="bar"><i class="cpu-bar"></i></span><span class="label">CPU</span></div>
-            <div class="metric"><span class="value number memory">—</span><span class="bar"><i class="memory-bar"></i></span><span class="label">MEM</span></div>
+            <div class="metric"><span class="value number cpu"><span>—</span><small>%</small></span><span class="bar"><i class="cpu-bar"></i></span><span class="label">CPU</span></div>
+            <div class="metric"><span class="value number memory"><span>—</span><small>%</small></span><span class="bar"><i class="memory-bar"></i></span><span class="label">MEM</span></div>
           </div></div>
         ${SETUPS.map((key) => {
           // The weekly limit is the big number: hitting it stops an account
@@ -127,7 +128,7 @@ const build = (names) => {
           return `
   <div class="account" data-account="${key}">
     <div class="account-header"><span class="tag">${compact ? key[0] : key}</span><span class="five">5h <b class="number">—</b> <span class="five-reset number"></span></span></div>
-    <div class="account-figures"><span class="week number">—</span><span class="week-reset">—</span><span class="five-compact">5h <b class="number">—</b></span></div>
+    <div class="account-figures"><span class="week number"><span>—</span><small>%</small></span><span class="week-reset">—</span><span class="five-compact">5h <b class="number">—</b></span></div>
     <div class="week-bar"><i></i></div>
   </div>`;
         }).join('')}
@@ -275,15 +276,15 @@ const render = () => {
 
     const memoryBar = card.querySelector('.memory-bar');
 
-    card.querySelector('.cpu').innerHTML = `${machine.cpu}<small>%</small>`;
+    card.querySelector('.cpu span').textContent = machine.cpu;
 
-    card.querySelector('.memory').innerHTML = `${machine.memory}<small>%</small>`;
+    card.querySelector('.memory span').textContent = machine.memory;
 
     cpuBar.style.width = machine.cpu + '%';
 
     memoryBar.style.width = machine.memory + '%';
 
-    memoryBar.style.background = machine.memory >= 90 ? 'var(--critical)' : '';
+    memoryBar.style.background = machine.memory >= CRITICAL_PERCENT ? 'var(--critical)' : '';
 
     for (const key of SETUPS) {
       const account = machine.claude[key] || {};
@@ -302,6 +303,8 @@ const render = () => {
 
       box.classList.toggle('critical', hasWeek && account.week >= CRITICAL_PERCENT);
 
+      week.querySelector('span').textContent = hasWeek ? account.week : '—';
+
       for (const fiveLabel of [box.querySelector('.five b'), box.querySelector('.five-compact b')]) {
         fiveLabel.textContent = five != null ? five + '%' : '—';
 
@@ -311,16 +314,12 @@ const render = () => {
       box.querySelector('.five-reset').textContent = five != null && account.fiveReset != null ? formatReset(account.fiveReset - nowSeconds) : '';
 
       if (!hasWeek) {
-        week.innerHTML = '—';
-
         box.querySelector('.week-reset').textContent = 'no recent use';
 
         bar.style.width = '0';
 
         continue;
       }
-
-      week.innerHTML = `${account.week}<small>%</small>`;
 
       week.style.color = severityColor(account.week);
 
