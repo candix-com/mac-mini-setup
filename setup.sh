@@ -5,22 +5,12 @@ set -euo pipefail
 
 fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/$1" -o "$2"; }
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
-# Writes the LaunchDaemon $1, which runs as dev, from the plist keys on stdin, and reloads it when its plist changed.
-# It logs outside dev's home, where dev can't plant a symlink for launchd to follow. bootout returns before the job
-# is gone.
+# Writes the LaunchDaemon $1, which runs as dev, from the plist keys on stdin as JSON members, and reloads it when its
+# plist changed. It logs outside dev's home, where dev can't plant a symlink for launchd to follow. bootout returns
+# before the job is gone.
 daemon() {
   plutil -convert xml1 -o "$temporary/$1.plist" - <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$1</string>
-$(cat)
-  <key>StandardErrorPath</key><string>/Library/Logs/$1.log</string>
-  <key>StandardOutPath</key><string>/Library/Logs/$1.log</string>
-  <key>UserName</key><string>dev</string>
-</dict>
-</plist>
+{"Label": "$1", "StandardErrorPath": "/Library/Logs/$1.log", "StandardOutPath": "/Library/Logs/$1.log", "UserName": "dev", $(cat)}
 EOF
   cmp -s "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist" && sudo launchctl print "system/$1" >/dev/null 2>&1 && return
   sudo install -m 644 "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist"
@@ -94,11 +84,8 @@ step "4/7 Docker"
 # Each launch force-stops the VM first. A VM left running by a failed start would otherwise
 # make colima start exit at once.
 daemon com.candix.colima <<'EOF'
-  <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
-  <key>KeepAlive</key><true/>
-  <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>-c</string><string>colima stop --force; exec colima start --foreground</string></array>
+"EnvironmentVariables": {"PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"}, "KeepAlive": true,
+"ProgramArguments": ["/bin/sh", "-c", "colima stop --force; exec colima start --foreground"]
 EOF
 # The first start downloads the VM, so it can take a few minutes
 for _ in {1..300}; do sudo -u dev -H docker info >/dev/null 2>&1 && break; sleep 1; done
@@ -123,17 +110,10 @@ if [[ $number == 1 ]]; then
   for job in dashboard dashboard-data; do
     fetch "$job.sh" "$temporary/$job"
     sudo install -o root -g wheel -m 755 "$temporary/$job" "/usr/local/bin/$job"
-    sudo -u stats -H tee "/Users/stats/Library/LaunchAgents/com.candix.$job.plist" >/dev/null <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>KeepAlive</key><true/>
-  <key>Label</key><string>com.candix.$job</string>
-  <key>ProgramArguments</key>
-  <array><string>/usr/local/bin/$job</string></array>
-</dict>
-</plist>
+    # launchd's PATH leaves out /opt/homebrew/bin and /usr/local/bin, where tailscale and mini-stats are
+    sudo -u stats -H plutil -convert xml1 -o "/Users/stats/Library/LaunchAgents/com.candix.$job.plist" - <<EOF
+{"EnvironmentVariables": {"PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"}, "KeepAlive": true,
+ "Label": "com.candix.$job", "ProgramArguments": ["/usr/local/bin/$job"]}
 EOF
   done
   sudo -u stats -H defaults -currentHost write com.apple.screensaver idleTime -int 0
@@ -224,9 +204,8 @@ EOF
 # Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
 # Each new session then loads the latest skills, and an edit or branch left in the clone doesn't last.
 daemon com.candix.skills <<'EOF'
-  <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q https://github.com/candix-com/skills.git main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qffdx</string></array>
-  <key>StartInterval</key><integer>300</integer>
+"ProgramArguments": ["/bin/sh", "-c", "cd /Users/dev/.candix-skills && /usr/bin/git fetch -q https://github.com/candix-com/skills.git main && /usr/bin/git checkout -q --force --detach FETCH_HEAD && /usr/bin/git clean -qffdx"],
+"StartInterval": 300
 EOF
 
 # Last, because turning on the firewall cuts the internet for a few seconds
