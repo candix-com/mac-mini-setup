@@ -12,6 +12,8 @@ daemon() {
   plutil -convert xml1 -o "$temporary/$1.plist" - <<EOF
 {"Label": "$1", "StandardErrorPath": "/Library/Logs/$1.log", "StandardOutPath": "/Library/Logs/$1.log", "UserName": "dev", $(cat)}
 EOF
+  # launchd opens the log as dev, who can't create files in /Library/Logs. Without the file the job exits with 78.
+  [[ -f /Library/Logs/$1.log ]] || sudo install -o dev -m 644 /dev/null "/Library/Logs/$1.log"
   cmp -s "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist" && sudo launchctl print "system/$1" >/dev/null 2>&1 && return
   sudo install -m 644 "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist"
   sudo launchctl bootout "system/$1" 2>/dev/null || true
