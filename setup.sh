@@ -5,6 +5,29 @@ set -euo pipefail
 
 fetch() { curl -fsSL "https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/$1" -o "$2"; }
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
+# Writes the LaunchDaemon $1, which runs as dev, from the plist keys on stdin, and reloads it when its plist changed.
+# It logs outside dev's home, where dev can't plant a symlink for launchd to follow. bootout returns before the job
+# is gone.
+daemon() {
+  cat >"$temporary/$1.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$1</string>
+$(cat)
+  <key>StandardErrorPath</key><string>/Library/Logs/$1.log</string>
+  <key>StandardOutPath</key><string>/Library/Logs/$1.log</string>
+  <key>UserName</key><string>dev</string>
+</dict>
+</plist>
+EOF
+  cmp -s "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist" && sudo launchctl print "system/$1" >/dev/null 2>&1 && return
+  sudo install -m 644 "$temporary/$1.plist" "/Library/LaunchDaemons/$1.plist"
+  sudo launchctl bootout "system/$1" 2>/dev/null || true
+  while sudo launchctl print "system/$1" >/dev/null 2>&1; do sleep 1; done
+  sudo launchctl bootstrap system "/Library/LaunchDaemons/$1.plist"
+}
 
 fdesetup isactive >/dev/null || { echo "Turn on FileVault first: System Settings > Privacy & Security > FileVault."; exit 1; }
 read -rp "Which Mac mini is this? Type its number (1 is the one with the screen): " number </dev/tty
@@ -67,32 +90,19 @@ sudo tailscale serve --bg --tcp 5900 tcp://localhost:5900 >/dev/null
 
 step "4/7 Docker"
 # Colima runs Docker in a Linux VM, as dev, from boot, with nobody logged in (NOTES.md)
-sudo -u dev mkdir -p /Users/dev/Library/Logs
 # The job runs colima, and Colima runs limactl and docker, from the PATH, which launchd sets without /opt/homebrew/bin.
 # Each launch force-stops the VM first. A VM left running by a failed start would otherwise
 # make colima start exit at once.
-sudo tee /Library/LaunchDaemons/com.candix.colima.plist >/dev/null <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
+daemon com.candix.colima <<'EOF'
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>KeepAlive</key><true/>
-  <key>Label</key><string>com.candix.colima</string>
   <key>ProgramArguments</key>
   <array><string>/bin/sh</string><string>-c</string><string>colima stop --force; exec colima start --foreground</string></array>
-  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/colima.log</string>
-  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/colima.log</string>
-  <key>UserName</key><string>dev</string>
-</dict>
-</plist>
 EOF
-sudo launchctl print system/com.candix.colima >/dev/null 2>&1 ||
-  sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.colima.plist
 # The first start downloads the VM, so it can take a few minutes
 for _ in {1..300}; do sudo -u dev -H docker info >/dev/null 2>&1 && break; sleep 1; done
-sudo -u dev -H docker info >/dev/null 2>&1 || { echo "Docker didn't start. Colima's log: sudo cat /Users/dev/Library/Logs/colima.log"; exit 1; }
+sudo -u dev -H docker info >/dev/null 2>&1 || { echo "Docker didn't start. Colima's log: sudo cat /Library/Logs/com.candix.colima.log"; exit 1; }
 
 step "5/7 Dashboard"
 fetch mini-stats "$temporary/mini-stats"
@@ -212,27 +222,11 @@ EOF
 
 # Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
 # Each new session then loads the latest reviewed skills, never an edit or branch left in the clone.
-sudo tee /Library/LaunchDaemons/com.candix.skills.plist >/dev/null <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>EnvironmentVariables</key>
-  <dict><key>HOME</key><string>/Users/dev</string></dict>
-  <key>Label</key><string>com.candix.skills</string>
+daemon com.candix.skills <<'EOF'
   <key>ProgramArguments</key>
   <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q https://github.com/candix-com/skills.git main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qffdx</string></array>
-  <key>StandardErrorPath</key><string>/Library/Logs/candix-skills.log</string>
-  <key>StandardOutPath</key><string>/Library/Logs/candix-skills.log</string>
   <key>StartInterval</key><integer>300</integer>
-  <key>UserName</key><string>dev</string>
-</dict>
-</plist>
 EOF
-# Reloaded on every run, so a changed plist takes effect. bootout returns before the job is gone.
-sudo launchctl bootout system/com.candix.skills 2>/dev/null || true
-while sudo launchctl print system/com.candix.skills >/dev/null 2>&1; do sleep 1; done
-sudo launchctl bootstrap system /Library/LaunchDaemons/com.candix.skills.plist
 
 # Last, because turning on the firewall cuts the internet for a few seconds
 step "7/7 Settings"
