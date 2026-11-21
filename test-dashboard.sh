@@ -1,8 +1,9 @@
 #!/bin/bash
-# Runs dashboard-data.sh with this repo's mini-stats against stubbed Tailscale, SSH, top and memory_pressure until
-# it writes data.js, then checks it, twice: with this Mac's numbers, then with its mini-stats stuck. A host name other than lowercase letters, digits and hyphens is dropped. A
-# second JSON value adds no entry, and a Mac mini can't rename itself. An older mini-stats line, a null, a Mac mini
-# that never answers and an unreachable one show as down.
+# Runs dashboard-data.sh with this repo's mini-stats, against stubbed Tailscale, SSH, top and memory_pressure, and
+# checks the first data.js it writes. It runs twice: once with this Mac's numbers, once with its mini-stats stuck.
+# A host name other than lowercase letters, digits and hyphens is dropped. A second JSON value adds no entry, and a
+# Mac mini can't rename itself. An older mini-stats line, a null, a Mac mini that never answers and an unreachable
+# one show as down.
 set -euo pipefail
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT

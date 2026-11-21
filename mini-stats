@@ -1,5 +1,6 @@
 #!/bin/bash
-# Prints this Mac's CPU %, memory % and each Claude setup's usage limits as JSON. dashboard-data.sh reads it.
+# Prints this Mac's CPU and memory use in percent, and each Claude setup's usage limits, as JSON. dashboard-data.sh
+# reads it.
 # setup.sh installs it, and makes it the stats user's only shell on every Mac mini but mini-1.
 idle=$(top -l 2 -n 0 -s 1 | awk '/CPU usage/ {v=$7} END {sub("%", "", v); print v}')
 free=$(memory_pressure -Q | awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')

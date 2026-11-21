@@ -203,9 +203,9 @@ git config --global commit.gpgsign true
 EOF
 
 # Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
-# Each new session then loads the latest skills, and an edit or branch left in the clone doesn't last. It fetches by
-# URL, not origin, so a changed remote doesn't last either, and clean's second -f removes nested repositories too.
-# Plugins kept in submodules, such as cloudflare, are checked out and reset the same way.
+# Each new session then loads the latest skills, and an edit or branch left by mistake doesn't last. It fetches by
+# URL, not origin, so a changed remote is undone too. clean's second -f removes nested repositories too. Submodules
+# are checked out and reset the same way.
 daemon com.candix.skills <<'EOF'
 "ProgramArguments": ["/bin/sh", "-c", "cd /Users/dev/.candix-skills && /usr/bin/git fetch -q https://github.com/candix-com/skills.git main && /usr/bin/git checkout -q --force --detach FETCH_HEAD && /usr/bin/git clean -qffdx && /usr/bin/git submodule sync -q && /usr/bin/git submodule update -q --init --force --checkout && /usr/bin/git submodule foreach -q '/usr/bin/git clean -qffdx'"],
 "StartInterval": 300
