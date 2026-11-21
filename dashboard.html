@@ -15,7 +15,7 @@
 *{box-sizing:border-box}
 html{overflow:hidden;background:var(--background)}
 /* Laid out at the panel's 1280x400, then stretched to fill the window (fit()) */
-body{position:relative;transform-origin:0 0;margin:0;width:1280px;height:400px;overflow:hidden;color:var(--text);
+body{transform-origin:0 0;margin:0;width:1280px;height:400px;overflow:hidden;color:var(--text);
   font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .number{font-family:var(--monospace);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 main{position:absolute;inset:8px;display:grid;gap:8px;grid-template-columns:repeat(3,1fr)}
@@ -40,12 +40,18 @@ main.compact{grid-template-rows:1fr 1fr}
 .metric .value small{font-size:22px;color:var(--muted);font-weight:700}
 .metric .bar{margin-top:5px;width:100%;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
 .metric .bar i{display:block;height:100%;border-radius:3px;transition:width 1s,background .5s}
+.cpu-bar{background:#5aa9ff}
+.memory-bar{background:#c48bff}
+.hot .cpu{color:var(--warn)}
+.hot .cpu-bar{background:var(--warn)}
 .metric .label{font-size:22px;font-weight:700;color:var(--muted);letter-spacing:.06em;line-height:1;margin-top:5px}
 
 /* account blocks */
 .account{margin-top:8px;padding-top:8px;border-top:2px solid var(--line);flex:1;display:flex;flex-direction:column;justify-content:center}
 .account-header{display:flex;justify-content:space-between;align-items:baseline}
-.account-header .tag{font-size:22px;font-weight:800;letter-spacing:.1em}
+.account[data-account="work"]{--account:var(--work)}
+.account[data-account="personal"]{--account:var(--personal)}
+.account-header .tag{font-size:22px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--account)}
 .account-header .five{font-size:28px;font-weight:700;color:var(--muted)}
 .account-header .five b{color:var(--text)}
 .account-header .five-reset{font-size:24px}
@@ -59,7 +65,7 @@ main.compact{grid-template-rows:1fr 1fr}
 .critical .week{animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.6}}
 .week-bar{margin-top:8px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}
-.week-bar i{display:block;height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.3,.7,.2,1),background .6s}
+.week-bar i{display:block;height:100%;border-radius:4px;background:var(--account);transition:width 1.2s cubic-bezier(.3,.7,.2,1),background .6s}
 .nodata .week{color:var(--faint)!important}
 .nodata .week-reset{color:var(--faint)}
 
@@ -93,23 +99,15 @@ main.compact{grid-template-rows:1fr 1fr}
 <main id="grid"></main>
 <script>
 /* -----------------------------------------------------------------------------
-/* $
-/* -------------------------------------------------------------------------- */
-
-const $ = (selector, root = document) => {
-  return root.querySelector(selector);
-};
-
-/* -----------------------------------------------------------------------------
 /* accountHTML
 /* -------------------------------------------------------------------------- */
 
-// The weekly limit is the big number: hitting it stops an account for days,
-// the 5-hour one for hours
-const accountHTML = (key, label, short, color) => {
+// The weekly limit is the big number: hitting it stops an account for days, the
+// 5-hour one for hours
+const accountHTML = (key) => {
   return `
   <div class="account" data-account="${key}">
-    <div class="account-header"><span class="tag" style="color:${color}">${compact ? short : label}</span><span class="five">5h <b class="number">—</b> <span class="five-reset number"></span></span></div>
+    <div class="account-header"><span class="tag">${compact ? key[0] : key}</span><span class="five">5h <b class="number">—</b> <span class="five-reset number"></span></span></div>
     <div class="account-figures"><span class="week number">—</span><span class="week-reset">—</span><span class="five-compact">5h <b class="number">—</b></span></div>
     <div class="week-bar"><i></i></div>
   </div>`;
@@ -140,8 +138,7 @@ const build = (names) => {
             <div class="metric"><span class="value number cpu">—</span><span class="bar"><i class="cpu-bar"></i></span><span class="label">CPU</span></div>
             <div class="metric"><span class="value number memory">—</span><span class="bar"><i class="memory-bar"></i></span><span class="label">MEM</span></div>
           </div></div>
-        ${accountHTML('work', 'WORK', 'W', 'var(--work)')}
-        ${accountHTML('personal', 'PERSONAL', 'P', 'var(--personal)')}
+        ${SETUPS.map(accountHTML).join('')}
       </div>
       <div class="off"><div class="name-row"><span class="dot"></span><span class="name"></span></div><div class="big">UNREACHABLE</div>
         <div class="small ago">no answer yet</div></div>`;
@@ -156,11 +153,11 @@ const build = (names) => {
   }
 };
 
-let cards = new Map();
+let cards;
 
 const clockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>`;
 
-let compact = false;
+let compact;
 
 /* -----------------------------------------------------------------------------
 /* fit
@@ -210,7 +207,9 @@ const formatReset = (remaining) => {
   return hours >= 1 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
-const grid = $('#grid');
+const grid = document.querySelector('#grid');
+
+const lastAnswered = {};
 
 let layout = '';
 
@@ -249,85 +248,79 @@ const render = () => {
 
   const names = machines.map((machine) => {
     return machine.name;
-  }).join(' ');
+  });
 
   const time = Date.now() / MILLISECONDS_PER_SECOND;
 
-  // The collector stopped
-  const stale = time - fleet.time > 30;
+  // Six missed 5-second writes
+  const collectorStopped = time - fleet.time > 30;
 
-  if (names !== layout) {
-    layout = names;
+  if (layout !== names.join(' ')) {
+    layout = names.join(' ');
 
-    build(names.split(' '));
+    build(names);
   }
 
   for (const machine of machines) {
     const card = cards.get(machine.name);
 
-    const up = machine.up && !stale;
+    const up = machine.up && !collectorStopped;
 
     const hot = up && machine.cpu >= 85;
 
-    if (up) seen[machine.name] = fleet.time;
+    if (up) lastAnswered[machine.name] = fleet.time;
 
     card.classList.toggle('down', !up);
 
     card.classList.toggle('hot', hot);
 
-    $('.ago', card).textContent = stale ? 'dashboard not updating' : seen[machine.name] ? `last seen ${formatAgo(time - seen[machine.name])} ago` : 'no answer yet';
+    card.querySelector('.ago').textContent = collectorStopped ? 'dashboard not updating' : lastAnswered[machine.name] ? `last seen ${formatAgo(time - lastAnswered[machine.name])} ago` : 'no answer yet';
 
     if (!up) continue;
 
-    const cpu = $('.cpu', card);
+    const cpuBar = card.querySelector('.cpu-bar');
 
-    const cpuBar = $('.cpu-bar', card);
+    const memoryBar = card.querySelector('.memory-bar');
 
-    const memoryBar = $('.memory-bar', card);
+    card.querySelector('.cpu').innerHTML = `${machine.cpu}<small>%</small>`;
 
-    cpu.innerHTML = `${machine.cpu}<small>%</small>`;
-
-    cpu.style.color = hot ? 'var(--warn)' : '';
-
-    $('.memory', card).innerHTML = `${machine.memory}<small>%</small>`;
+    card.querySelector('.memory').innerHTML = `${machine.memory}<small>%</small>`;
 
     cpuBar.style.width = machine.cpu + '%';
 
-    cpuBar.style.background = hot ? 'var(--warn)' : '#5aa9ff';
-
     memoryBar.style.width = machine.memory + '%';
 
-    memoryBar.style.background = machine.memory >= 90 ? 'var(--critical)' : '#c48bff';
+    memoryBar.style.background = machine.memory >= 90 ? 'var(--critical)' : '';
 
-    for (const [key, color] of [['work', 'var(--work)'], ['personal', 'var(--personal)']]) {
+    for (const key of SETUPS) {
       const account = machine.claude[key] || {};
 
-      const box = $(`[data-account="${key}"]`, card);
+      const box = card.querySelector(`[data-account="${key}"]`);
 
-      const bar = $('.week-bar i', box);
+      const bar = box.querySelector('.week-bar i');
 
       const five = account.five;
 
-      const has = account.week != null;
+      const hasWeek = account.week != null;
 
-      const week = $('.week', box);
+      const week = box.querySelector('.week');
 
-      box.classList.toggle('nodata', !has);
+      box.classList.toggle('nodata', !hasWeek);
 
-      box.classList.toggle('critical', has && account.week >= 90);
+      box.classList.toggle('critical', hasWeek && account.week >= 90);
 
-      for (const fiveLabel of [$('.five b', box), $('.five-compact b', box)]) {
+      for (const fiveLabel of [box.querySelector('.five b'), box.querySelector('.five-compact b')]) {
         fiveLabel.textContent = five != null ? five + '%' : '—';
 
         fiveLabel.style.color = severityColor(five, '');
       }
 
-      $('.five-reset', box).textContent = five != null && account.fiveReset ? formatReset(account.fiveReset - time) : '';
+      box.querySelector('.five-reset').textContent = five != null && account.fiveReset ? formatReset(account.fiveReset - time) : '';
 
-      if (!has) {
+      if (!hasWeek) {
         week.innerHTML = '—';
 
-        $('.week-reset', box).textContent = 'no recent use';
+        box.querySelector('.week-reset').textContent = 'no recent use';
 
         bar.style.width = '0';
 
@@ -336,13 +329,13 @@ const render = () => {
 
       week.innerHTML = `${account.week}<small>%</small>`;
 
-      week.style.color = severityColor(account.week, 'var(--text)');
+      week.style.color = severityColor(account.week, '');
 
-      $('.week-reset', box).innerHTML = account.weekReset ? `${clockIcon}<b class="number">${formatDay(account.weekReset)}</b>` : '';
+      box.querySelector('.week-reset').innerHTML = account.weekReset ? `${clockIcon}<b class="number">${formatDay(account.weekReset)}</b>` : '';
 
       bar.style.width = account.week + '%';
 
-      bar.style.background = severityColor(account.week, color);
+      bar.style.background = severityColor(account.week, '');
     }
   }
 };
@@ -351,8 +344,7 @@ const SECONDS_PER_HOUR = 3600;
 
 const SECONDS_PER_MINUTE = 60;
 
-// When each machine last answered
-const seen = {};
+const SETUPS = ['work', 'personal'];
 
 /* -----------------------------------------------------------------------------
 /* severityColor

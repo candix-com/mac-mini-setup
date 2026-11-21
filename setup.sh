@@ -147,7 +147,7 @@ sudo tee "/Library/Application Support/ClaudeCode/managed-settings.json" >/dev/n
   "autoMemoryEnabled": false,
   "enabledPlugins": {"engineering@candix": true, "maintainer@candix": true, "reviewers@candix": true},
   "env": {"DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1"},
-  "extraKnownMarketplaces": {"candix": {"autoUpdate": true, "source": {"repo": "candix-com/skills", "source": "github"}}},
+  "extraKnownMarketplaces": {"candix": {"source": {"path": "/Users/dev/.candix-skills", "source": "directory"}}},
   "statusLine": {"command": "/usr/local/bin/claude-usage-statusline", "type": "command"}
 }
 EOF
@@ -178,10 +178,9 @@ grep -qsxF 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' ~/.zs
   echo 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' >> ~/.zshenv
 grep -qsxF 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' ~/.zshenv ||
   echo 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock' >> ~/.zshenv
-# Both setups use the default plugin folder, so plugins are installed and updated once
-for profile in work personal; do
-  printf '#!/bin/bash\nexport CLAUDE_CONFIG_DIR="$HOME/.claude-%s" CLAUDE_CODE_PLUGIN_CACHE_DIR="$HOME/.claude/plugins"\nexec "$HOME/.local/bin/claude" "$@"\n' "$profile" > ~/.local/bin/claude-$profile
-  chmod 755 ~/.local/bin/claude-$profile
+for setup in work personal; do
+  printf '#!/bin/bash\nexport CLAUDE_CONFIG_DIR="$HOME/.claude-%s"\nexec "$HOME/.local/bin/claude" "$@"\n' "$setup" > ~/.local/bin/claude-$setup
+  chmod 755 ~/.local/bin/claude-$setup
 done
 # Plain claude would start a third, unlabeled setup, so it prints the two commands instead. With CLAUDE_CONFIG_DIR
 # set, as inside claude-work or claude-personal, it runs claude.
@@ -209,26 +208,22 @@ fi
 git config --global gpg.format ssh
 git config --global user.signingkey ~/.ssh/id_ed25519.pub
 git config --global commit.gpgsign true
-# Here, after the GitHub login, because candix-com/skills is private. Claude Code doesn't install plugins from its
-# settings by itself.
-~/.local/bin/claude plugin marketplace add candix-com/skills >/dev/null
-for plugin in engineering maintainer reviewers; do
-  ~/.local/bin/claude plugin install "$plugin@candix" >/dev/null
-done
+# Both setups load the candix plugins in place from this clone (managed-settings.json). It is private, so it is
+# cloned after the GitHub login.
+[[ -d ~/.candix-skills ]] || $gh repo clone candix-com/skills ~/.candix-skills -- -q
 EOF
 
-# Claude Code refreshes plugin marketplaces only now and then, so new sessions ran old candix skills.
-# This pulls every marketplace every 5 minutes, as dev, with nobody logged in. git comes from the PATH.
+# Pulls the candix skills every 5 minutes, as dev, with nobody logged in, so each new session loads the latest
 sudo tee /Library/LaunchDaemons/com.candix.claude-marketplaces.plist >/dev/null <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>EnvironmentVariables</key>
-  <dict><key>HOME</key><string>/Users/dev</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+  <dict><key>HOME</key><string>/Users/dev</string></dict>
   <key>Label</key><string>com.candix.claude-marketplaces</string>
   <key>ProgramArguments</key>
-  <array><string>/Users/dev/.local/bin/claude</string><string>plugin</string><string>marketplace</string><string>update</string></array>
+  <array><string>/usr/bin/git</string><string>-C</string><string>/Users/dev/.candix-skills</string><string>pull</string><string>-q</string><string>--ff-only</string></array>
   <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
   <key>StandardOutPath</key><string>/Users/dev/Library/Logs/claude-marketplaces.log</string>
   <key>StartInterval</key><integer>300</integer>

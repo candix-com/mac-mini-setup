@@ -22,10 +22,10 @@ while :; do
   done
   wait
 
-  # Chrome runs data.js, so jq passes on only the numbers and setup names from each machine's output
+  # The page puts these values in its HTML, so jq passes on only the numbers and setup names from each machine
   for machine in "${machines[@]}"; do
     /usr/bin/jq -nc --arg name "$machine" '(try (input | {name: $name, up: true, cpu: (.cpu | numbers),
-      memory: (.memory | numbers), claude: (.claude | objects | with_entries(select(.key | test("^[a-z]+$")))
+      memory: (.memory | numbers), claude: (.claude | with_entries(select(.key | test("^[a-z]+$")))
         | map_values(objects | {five, fiveReset, week, weekReset} | map_values(numbers // null)))})
       catch null) // {name: $name, up: false}' "$temporary/$machine"
   done | /usr/bin/jq -sr --argjson time "$(date +%s)" '"window.FLEET = \({time: $time, machines: .});"' >"$output.tmp" &&
