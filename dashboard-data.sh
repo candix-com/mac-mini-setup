@@ -21,6 +21,9 @@ while :; do
       ssh -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$machine" >"$temporary/$machine" 2>/dev/null &
     fi
   done
+  # A Mac mini that never answers can't hold up the others
+  sleep 4
+  kill $(jobs -p) 2>/dev/null
   wait
 
   # Only the first value counts, and only if it is an object: an older mini-stats line, null or no answer shows as
@@ -30,5 +33,5 @@ while :; do
       "$temporary/$machine"
   done | /usr/bin/jq -sr '"window.FLEET = \({machines: ., timeSeconds: (now | floor)});"' >"$output.tmp" &&
     mv "$output.tmp" "$output"   # moved into place, so the page never loads half a file
-  sleep 5
+  sleep 1
 done

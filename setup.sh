@@ -9,7 +9,7 @@ step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 # It logs outside dev's home, where dev can't plant a symlink for launchd to follow. bootout returns before the job
 # is gone.
 daemon() {
-  cat >"$temporary/$1.plist" <<EOF
+  plutil -convert xml1 -o "$temporary/$1.plist" - <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -145,9 +145,10 @@ fi
 step "6/7 dev: shell, Claude Code and GitHub"
 fetch claude-usage-statusline.sh "$temporary/statusline"
 sudo install -o root -g wheel -m 755 "$temporary/statusline" /usr/local/bin/claude-usage-statusline
-# Both Claude setups read managed-settings.json, and dev can't change it (NOTES.md). No "Generated with Claude Code"
-# line or Co-authored-by trailer, and no auto memory: lessons go in the shared skills. Only the agent runs maintainer
-# and the two plugins it calls, so this machine enables them, not a repository.
+# Both Claude setups read managed-settings.json, and dev can't change it (NOTES.md). Attribution is off, so PRs get
+# no "Generated with Claude Code" line and commits no Co-authored-by trailer. Auto memory is off because lessons go
+# in the shared skills. Only the agent runs maintainer and the two plugins it calls, so this machine enables them,
+# not a repository.
 sudo mkdir -p "/Library/Application Support/ClaudeCode"
 sudo tee "/Library/Application Support/ClaudeCode/managed-settings.json" >/dev/null <<'EOF'
 {
@@ -221,7 +222,7 @@ git config --global commit.gpgsign true
 EOF
 
 # Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
-# Each new session then loads the latest reviewed skills, never an edit or branch left in the clone.
+# Each new session then loads the latest skills, and an edit or branch left in the clone doesn't last.
 daemon com.candix.skills <<'EOF'
   <key>ProgramArguments</key>
   <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q https://github.com/candix-com/skills.git main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qffdx</string></array>

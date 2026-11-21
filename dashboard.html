@@ -290,7 +290,7 @@ const render = () => {
 
       const week = setupElement.querySelector('.week');
 
-      const weekReset = setupElement.querySelector('.week-reset b');
+      const weekResetLabel = setupElement.querySelector('.week-reset b');
 
       setupElement.classList.toggle('nodata', !hasWeek);
 
@@ -304,19 +304,19 @@ const render = () => {
         fiveLabel.style.color = severityColor(five);
       }
 
-      setupElement.querySelector('.five-reset').textContent = limits.fiveReset != null ? formatReset(limits.fiveReset - nowSeconds) : '';
+      setupElement.querySelector('.five-reset').textContent = limits.fiveResetSeconds != null ? formatReset(limits.fiveResetSeconds - nowSeconds) : '';
 
       week.style.color = severityColor(limits.week);
 
       if (!hasWeek) {
-        weekReset.textContent = 'no recent use';
+        weekResetLabel.textContent = 'no recent use';
 
         bar.style.width = '0';
 
         continue;
       }
 
-      weekReset.textContent = limits.weekReset != null ? formatDay(limits.weekReset) : '';
+      weekResetLabel.textContent = limits.weekResetSeconds != null ? formatDay(limits.weekResetSeconds) : '';
 
       bar.style.width = limits.week + '%';
 

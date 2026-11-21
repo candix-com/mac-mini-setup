@@ -34,7 +34,7 @@ sed -e "s#/opt/homebrew/bin/tailscale#$temporary/bin/tailscale#" -e "s#/usr/loca
 PATH=$temporary/bin:$PATH TMPDIR=$temporary bash "$temporary/collector.sh" &
 collector=$!
 disown
-for _ in {1..50}; do [[ -f $temporary/data.js ]] && break; sleep 0.1; done
+for _ in {1..100}; do [[ -f $temporary/data.js ]] && break; sleep 0.1; done
 diff <(sed 's/"timeSeconds":[0-9]*/"timeSeconds":0/' "$temporary/data.js") - <<'EOF'
 window.FLEET = {"machines":[{"claude":{},"cpu":10,"memory":60,"name":"mini-1","up":true},{"claude":{},"cpu":1,"memory":2,"name":"mini-2","up":true},{"name":"mini-3","up":false},{"name":"mini-4","up":false},{"claude":{},"cpu":5,"memory":6,"name":"mini-5","up":true},{"name":"mini-6","up":false}],"timeSeconds":0};
 EOF

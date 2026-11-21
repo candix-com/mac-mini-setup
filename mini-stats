@@ -10,7 +10,7 @@ shopt -s nullglob
   claude: (reduce inputs as $limits ({}; .[input_filename | capture("latest-(?<setup>[a-z]+)[.]json$").setup] =
     ($limits | [.five_hour, .seven_day]
       | map(if .resets_at > now then [(.used_percentage | floor), (.resets_at | floor)] else [0, null] end)
-      | {five: .[0][0], fiveReset: .[0][1], week: .[1][0], weekReset: .[1][1]}))),
+      | {five: .[0][0], fiveResetSeconds: .[0][1], week: .[1][0], weekResetSeconds: .[1][1]}))),
   cpu: (100 - $idle | round),
   memory: (100 - $free)
 }' /Users/Shared/claude-usage/latest-*.json </dev/null
