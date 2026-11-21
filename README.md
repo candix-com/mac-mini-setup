@@ -49,7 +49,7 @@ On your laptop:
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/candix-com/mac-mini-setup/main/laptop.sh)"
    ```
 3. Type the Mac mini's number.
-4. Claude opens twice to log in, first Work, then Personal: each time click the link, approve it in the browser with that account, paste the code back, then type `/exit`. With only one account, log in to it both times.
+4. Claude asks twice to log in, first Work, then Personal: each time click the link, approve it in the browser with that account and paste the code back. With only one account, log in to it both times.
 
 Next Mac mini: step 2.
 
