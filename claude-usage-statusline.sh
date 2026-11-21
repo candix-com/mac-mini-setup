@@ -3,6 +3,7 @@
 input=$(cat)
 # claude-work and claude-personal set CLAUDE_CONFIG_DIR to ~/.claude-work or ~/.claude-personal
 setup=${CLAUDE_CONFIG_DIR##*/.claude-}
+# $setup goes into a file name: any other CLAUDE_CONFIG_DIR, or none, saves no limits and shows no name
 [[ $setup =~ ^[a-z]+$ ]] || setup=""
 
 # Claude Code sends the limits (Pro and Max plans) after the session's first reply

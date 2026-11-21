@@ -17,7 +17,7 @@ html{overflow:hidden;background:var(--background)}
 /* Laid out at the panel's 1280x400, then stretched to fill the window (fit()) */
 body{transform-origin:0 0;margin:0;width:1280px;height:400px;overflow:hidden;color:var(--text);
   font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-.number{font-family:var(--monospace);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.number{font-family:var(--monospace);letter-spacing:-.03em}
 main{position:absolute;inset:8px;display:grid;gap:8px;grid-template-columns:repeat(3,1fr)}
 main.compact{grid-template-rows:1fr 1fr}
 
@@ -64,9 +64,11 @@ main.compact{grid-template-rows:1fr 1fr}
 @keyframes pulse{50%{opacity:.6}}
 .week-bar{margin-top:8px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}
 .week-bar i{display:block;height:100%;border-radius:4px;background:var(--account);transition:width 1.2s cubic-bezier(.3,.7,.2,1),background .6s}
-.nodata .week{color:var(--faint)!important}
+.nodata .week{color:var(--faint)}
 .nodata .week small{display:none}
 .nodata .week-reset{color:var(--faint)}
+.nodata .week-reset svg{display:none}
+.nodata .week-reset b{color:inherit}
 
 .off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   opacity:0;transition:opacity .6s;pointer-events:none;text-align:center}
@@ -102,7 +104,7 @@ main.compact{grid-template-rows:1fr 1fr}
 /* -------------------------------------------------------------------------- */
 
 const build = (names) => {
-  compact = names.length > 3;
+  const compact = names.length > 3;
 
   grid.innerHTML = '';
 
@@ -128,7 +130,7 @@ const build = (names) => {
           return `
   <div class="account" data-account="${key}">
     <div class="account-header"><span class="tag">${compact ? key[0] : key}</span><span class="five">5h <b class="number">—</b> <span class="five-reset number"></span></span></div>
-    <div class="account-figures"><span class="week number"><span>—</span><small>%</small></span><span class="week-reset">—</span><span class="five-compact">5h <b class="number">—</b></span></div>
+    <div class="account-figures"><span class="week number"><span>—</span><small>%</small></span><span class="week-reset">${clockIcon}<b class="number">—</b></span><span class="five-compact">5h <b class="number">—</b></span></div>
     <div class="week-bar"><i></i></div>
   </div>`;
         }).join('')}
@@ -149,8 +151,6 @@ const build = (names) => {
 let cards;
 
 const clockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>`;
-
-let compact;
 
 const CRITICAL_PERCENT = 90;
 
@@ -287,7 +287,7 @@ const render = () => {
     memoryBar.style.background = machine.memory >= CRITICAL_PERCENT ? 'var(--critical)' : '';
 
     for (const key of SETUPS) {
-      const account = machine.claude[key] || {};
+      const account = machine.claude?.[key] || {};
 
       const box = card.querySelector(`[data-account="${key}"]`);
 
@@ -299,9 +299,11 @@ const render = () => {
 
       const week = box.querySelector('.week');
 
+      const weekReset = box.querySelector('.week-reset b');
+
       box.classList.toggle('nodata', !hasWeek);
 
-      box.classList.toggle('critical', hasWeek && account.week >= CRITICAL_PERCENT);
+      box.classList.toggle('critical', account.week >= CRITICAL_PERCENT);
 
       week.querySelector('span').textContent = hasWeek ? account.week : '—';
 
@@ -311,19 +313,19 @@ const render = () => {
         fiveLabel.style.color = severityColor(five);
       }
 
-      box.querySelector('.five-reset').textContent = five != null && account.fiveReset != null ? formatReset(account.fiveReset - nowSeconds) : '';
+      box.querySelector('.five-reset').textContent = account.fiveReset != null ? formatReset(account.fiveReset - nowSeconds) : '';
+
+      week.style.color = severityColor(account.week);
 
       if (!hasWeek) {
-        box.querySelector('.week-reset').textContent = 'no recent use';
+        weekReset.textContent = 'no recent use';
 
         bar.style.width = '0';
 
         continue;
       }
 
-      week.style.color = severityColor(account.week);
-
-      box.querySelector('.week-reset').innerHTML = account.weekReset != null ? `${clockIcon}<b class="number">${formatDay(account.weekReset)}</b>` : '';
+      weekReset.textContent = account.weekReset != null ? formatDay(account.weekReset) : '';
 
       bar.style.width = account.week + '%';
 

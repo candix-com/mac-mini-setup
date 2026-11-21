@@ -120,10 +120,10 @@ if [[ $number == 1 ]]; then
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>KeepAlive</key><true/>
   <key>Label</key><string>com.candix.${job%%:*}</string>
   <key>ProgramArguments</key>
   <array><string>${job#*:}</string></array>
-  <key>KeepAlive</key><true/>
 </dict>
 </plist>
 EOF
@@ -212,8 +212,8 @@ git config --global commit.gpgsign true
 [[ -d ~/.candix-skills ]] || $gh repo clone candix-com/skills ~/.candix-skills -- -q
 EOF
 
-# Every 5 minutes, as dev, with nobody logged in, resets the candix skills to GitHub's main, so each new session
-# loads the latest reviewed skills and nothing edited or checked out in the clone
+# Every 5 minutes, as dev and with nobody logged in, this job resets the candix skills clone to GitHub's main.
+# Each new session then loads the latest reviewed skills, never an edit or branch left in the clone.
 sudo tee /Library/LaunchDaemons/com.candix.skills.plist >/dev/null <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -223,7 +223,7 @@ sudo tee /Library/LaunchDaemons/com.candix.skills.plist >/dev/null <<'EOF'
   <dict><key>HOME</key><string>/Users/dev</string></dict>
   <key>Label</key><string>com.candix.skills</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q origin main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qfdx</string></array>
+  <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q https://github.com/candix-com/skills.git main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qffdx</string></array>
   <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/candix-skills.log</string>
   <key>StandardOutPath</key><string>/Users/dev/Library/Logs/candix-skills.log</string>
   <key>StartInterval</key><integer>300</integer>
