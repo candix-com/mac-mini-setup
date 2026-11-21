@@ -14,8 +14,9 @@
 }
 *{box-sizing:border-box}
 html{overflow:hidden;background:var(--background)}
-/* Laid out at the panel's 1280x400, then stretched to fill the window (fit()) */
-body{transform-origin:0 0;margin:0;width:1280px;height:400px;overflow:hidden;color:var(--text);
+/* Laid out at the panel's 1280x400, then stretched to fill the window. macOS sends the panel 1920x1080, which the
+   panel squashes back, and the stretch cancels that. */
+body{transform-origin:0 0;transform:scale(calc(100vw / 1280px),calc(100vh / 400px));margin:0;width:1280px;height:400px;overflow:hidden;color:var(--text);
   font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .number{font-family:var(--monospace);letter-spacing:-.03em}
 main{position:absolute;inset:8px;display:grid;gap:8px;grid-template-columns:repeat(3,1fr)}
@@ -45,15 +46,15 @@ main.compact{grid-template-rows:1fr 1fr}
 .hot .cpu-bar{background:var(--warn)}
 .metric .label{font-size:22px;font-weight:700;color:var(--muted);letter-spacing:.06em;line-height:1;margin-top:5px}
 
-.account{margin-top:8px;padding-top:8px;border-top:2px solid var(--line);flex:1;display:flex;flex-direction:column;justify-content:center}
-.account-header{display:flex;justify-content:space-between;align-items:baseline}
-.account[data-account="work"]{--account:var(--work)}
-.account[data-account="personal"]{--account:var(--personal)}
-.account-header .tag{font-size:22px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--account)}
-.account-header .five{font-size:28px;font-weight:700;color:var(--muted)}
-.account-header .five b{color:var(--text)}
-.account-header .five-reset{font-size:24px}
-.account-figures{display:flex;align-items:baseline;justify-content:space-between;margin-top:-2px}
+.setup{margin-top:8px;padding-top:8px;border-top:2px solid var(--line);flex:1;display:flex;flex-direction:column;justify-content:center}
+.setup-header{display:flex;justify-content:space-between;align-items:baseline}
+.setup[data-setup="work"]{--setup:var(--work)}
+.setup[data-setup="personal"]{--setup:var(--personal)}
+.setup-header .tag{font-size:22px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--setup)}
+.setup-header .five{font-size:28px;font-weight:700;color:var(--muted)}
+.setup-header .five b{color:var(--text)}
+.setup-header .five-reset{font-size:24px}
+.setup-figures{display:flex;align-items:baseline;justify-content:space-between;margin-top:-2px}
 .week{font-size:66px;font-weight:800;line-height:1;transition:color .6s}
 .week small{font-size:32px;color:var(--muted);margin-left:2px}
 .week-reset{font-size:32px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:8px}
@@ -63,7 +64,7 @@ main.compact{grid-template-rows:1fr 1fr}
 .critical .week{animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.6}}
 .week-bar{margin-top:8px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}
-.week-bar i{display:block;height:100%;border-radius:4px;background:var(--account);transition:width 1.2s cubic-bezier(.3,.7,.2,1),background .6s}
+.week-bar i{display:block;height:100%;border-radius:4px;background:var(--setup);transition:width 1.2s cubic-bezier(.3,.7,.2,1),background .6s}
 .nodata .week{color:var(--faint)}
 .nodata .week small{display:none}
 .nodata .week-reset{color:var(--faint)}
@@ -83,10 +84,10 @@ main.compact{grid-template-rows:1fr 1fr}
 .compact .name{font-size:30px}
 .compact .metric{width:78px}.compact .metric .value{font-size:28px}
 .compact .metric .label{display:none}
-.compact .account{margin-top:4px;padding-top:4px;flex-direction:row;align-items:baseline;justify-content:flex-start;gap:12px;border-top-width:1px}
-.compact .account-header{width:30px}.compact .account-header .five{display:none}
-.compact .account-header .tag{font-size:24px}
-.compact .account-figures{flex:1;gap:10px}
+.compact .setup{margin-top:4px;padding-top:4px;flex-direction:row;align-items:baseline;justify-content:flex-start;gap:12px;border-top-width:1px}
+.compact .setup-header{width:30px}.compact .setup-header .five{display:none}
+.compact .setup-header .tag{font-size:24px}
+.compact .setup-figures{flex:1;gap:10px}
 .compact .week{font-size:36px}.compact .week small{font-size:22px}
 .compact .week-reset{font-size:24px}.compact .week-reset svg{display:none}
 .compact .five-compact{display:block;font-size:22px;color:var(--muted);font-weight:700}
@@ -124,19 +125,19 @@ const build = (names) => {
             <div class="metric"><span class="value number cpu"><span>—</span><small>%</small></span><span class="bar"><i class="cpu-bar"></i></span><span class="label">CPU</span></div>
             <div class="metric"><span class="value number memory"><span>—</span><small>%</small></span><span class="bar"><i class="memory-bar"></i></span><span class="label">MEM</span></div>
           </div></div>
-        ${SETUPS.map((key) => {
-          // The weekly limit is the big number: hitting it stops an account
-          // for days, the 5-hour one for hours
+        ${SETUPS.map((setup) => {
+          // The weekly limit is the big number: hitting it stops an account for
+          // days, the 5-hour one for hours
           return `
-  <div class="account" data-account="${key}">
-    <div class="account-header"><span class="tag">${compact ? key[0] : key}</span><span class="five">5h <b class="number">—</b> <span class="five-reset number"></span></span></div>
-    <div class="account-figures"><span class="week number"><span>—</span><small>%</small></span><span class="week-reset">${clockIcon}<b class="number">—</b></span><span class="five-compact">5h <b class="number">—</b></span></div>
+  <div class="setup" data-setup="${setup}">
+    <div class="setup-header"><span class="tag">${compact ? setup[0] : setup}</span><span class="five">5h <b class="number">—</b> <span class="five-reset number"></span></span></div>
+    <div class="setup-figures"><span class="week number"><span>—</span><small>%</small></span><span class="week-reset">${clockIcon}<b class="number">—</b></span><span class="five-compact">5h <b class="number">—</b></span></div>
     <div class="week-bar"><i></i></div>
   </div>`;
         }).join('')}
       </div>
       <div class="off"><div class="name-row"><span class="dot"></span><span class="name"></span></div><div class="big">UNREACHABLE</div>
-        <div class="small ago">no answer yet</div></div>`;
+        <div class="small ago"></div></div>`;
 
     card.querySelectorAll('.name').forEach((nameElement) => {
       nameElement.textContent = name;
@@ -155,21 +156,11 @@ const clockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const CRITICAL_PERCENT = 90;
 
 /* -----------------------------------------------------------------------------
-/* fit
-/* -------------------------------------------------------------------------- */
-
-// macOS sends the 1280x400 panel 1920x1080, which the panel squashes back.
-// Stretching to the window cancels that.
-const fit = () => {
-  document.body.style.transform = `scale(${innerWidth / 1280},${innerHeight / 400})`;
-};
-
-/* -----------------------------------------------------------------------------
 /* formatAgo
 /* -------------------------------------------------------------------------- */
 
 const formatAgo = (seconds) => {
-  return seconds < 90 ? Math.round(seconds) + 's' : seconds < 5400 ? Math.round(seconds / SECONDS_PER_MINUTE) + ' min' : Math.round(seconds / SECONDS_PER_HOUR) + 'h';
+  return seconds < 90 ? Math.round(seconds) + 's' : seconds < 90 * SECONDS_PER_MINUTE ? Math.round(seconds / SECONDS_PER_MINUTE) + ' min' : Math.round(seconds / SECONDS_PER_HOUR) + 'h';
 };
 
 /* -----------------------------------------------------------------------------
@@ -203,7 +194,7 @@ const formatReset = (remainingSeconds) => {
 
 const grid = document.querySelector('#grid');
 
-const lastAnswered = {};
+const lastAnsweredSeconds = {};
 
 let layout = '';
 
@@ -240,7 +231,7 @@ const render = () => {
   const nowSeconds = Date.now() / MILLISECONDS_PER_SECOND;
 
   // Six missed 5-second writes
-  const collectorStopped = nowSeconds - fleet.time > 30;
+  const collectorStopped = nowSeconds - fleet.timeSeconds > 30;
 
   // Two rows of three fill the panel
   const machines = fleet.machines.slice(0, 6);
@@ -262,13 +253,13 @@ const render = () => {
 
     const hot = up && machine.cpu >= 85;
 
-    if (up) lastAnswered[machine.name] = fleet.time;
+    if (up) lastAnsweredSeconds[machine.name] = fleet.timeSeconds;
 
     card.classList.toggle('down', !up);
 
     card.classList.toggle('hot', hot);
 
-    card.querySelector('.ago').textContent = collectorStopped ? 'dashboard not updating' : lastAnswered[machine.name] != null ? `last seen ${formatAgo(nowSeconds - lastAnswered[machine.name])} ago` : 'no answer yet';
+    card.querySelector('.ago').textContent = collectorStopped ? 'dashboard not updating' : lastAnsweredSeconds[machine.name] != null ? `last seen ${formatAgo(nowSeconds - lastAnsweredSeconds[machine.name])} ago` : 'no answer yet';
 
     if (!up) continue;
 
@@ -286,36 +277,36 @@ const render = () => {
 
     memoryBar.style.background = machine.memory >= CRITICAL_PERCENT ? 'var(--critical)' : '';
 
-    for (const key of SETUPS) {
-      const account = machine.claude?.[key] || {};
+    for (const setup of SETUPS) {
+      const setupElement = card.querySelector(`[data-setup="${setup}"]`);
 
-      const box = card.querySelector(`[data-account="${key}"]`);
+      const bar = setupElement.querySelector('.week-bar i');
 
-      const bar = box.querySelector('.week-bar i');
+      const limits = machine.claude?.[setup] || {};
 
-      const five = account.five;
+      const five = limits.five;
 
-      const hasWeek = account.week != null;
+      const hasWeek = limits.week != null;
 
-      const week = box.querySelector('.week');
+      const week = setupElement.querySelector('.week');
 
-      const weekReset = box.querySelector('.week-reset b');
+      const weekReset = setupElement.querySelector('.week-reset b');
 
-      box.classList.toggle('nodata', !hasWeek);
+      setupElement.classList.toggle('nodata', !hasWeek);
 
-      box.classList.toggle('critical', account.week >= CRITICAL_PERCENT);
+      setupElement.classList.toggle('critical', limits.week >= CRITICAL_PERCENT);
 
-      week.querySelector('span').textContent = hasWeek ? account.week : '—';
+      week.querySelector('span').textContent = hasWeek ? limits.week : '—';
 
-      for (const fiveLabel of [box.querySelector('.five b'), box.querySelector('.five-compact b')]) {
+      for (const fiveLabel of [setupElement.querySelector('.five b'), setupElement.querySelector('.five-compact b')]) {
         fiveLabel.textContent = five != null ? five + '%' : '—';
 
         fiveLabel.style.color = severityColor(five);
       }
 
-      box.querySelector('.five-reset').textContent = account.fiveReset != null ? formatReset(account.fiveReset - nowSeconds) : '';
+      setupElement.querySelector('.five-reset').textContent = limits.fiveReset != null ? formatReset(limits.fiveReset - nowSeconds) : '';
 
-      week.style.color = severityColor(account.week);
+      week.style.color = severityColor(limits.week);
 
       if (!hasWeek) {
         weekReset.textContent = 'no recent use';
@@ -325,11 +316,11 @@ const render = () => {
         continue;
       }
 
-      weekReset.textContent = account.weekReset != null ? formatDay(account.weekReset) : '';
+      weekReset.textContent = limits.weekReset != null ? formatDay(limits.weekReset) : '';
 
-      bar.style.width = account.week + '%';
+      bar.style.width = limits.week + '%';
 
-      bar.style.background = severityColor(account.week);
+      bar.style.background = severityColor(limits.week);
     }
   }
 };
@@ -348,16 +339,12 @@ const severityColor = (percent) => {
   return percent >= CRITICAL_PERCENT ? 'var(--critical)' : percent >= 75 ? 'var(--warn)' : '';
 };
 
-addEventListener('resize', fit);
-
-fit();
-
 load();
 
-setInterval(load, 5000);
+setInterval(load, 5 * MILLISECONDS_PER_SECOND);
 
 // The countdowns tick between loads
-setInterval(render, 1000);
+setInterval(render, MILLISECONDS_PER_SECOND);
 </script>
 </body>
 </html>

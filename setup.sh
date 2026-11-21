@@ -106,24 +106,22 @@ if [[ $number == 1 ]]; then
   spctl --assess --type execute "/Applications/Google Chrome.app"
   codesign --verify -R='anchor apple generic and certificate leaf[subject.OU] = "EQHXZ8M8AV"' "/Applications/Google Chrome.app"
   sudo xattr -rd com.apple.quarantine "/Applications/Google Chrome.app"
-  fetch dashboard-data.sh "$temporary/dashboard-data"
-  sudo install -o root -g wheel -m 755 "$temporary/dashboard-data" /usr/local/bin/dashboard-data
-  fetch dashboard-kiosk.sh "$temporary/kiosk"
-  sudo install -o root -g wheel -m 755 "$temporary/kiosk" /usr/local/bin/dashboard-kiosk
   fetch dashboard.html "$temporary/dashboard.html"
   sudo -u stats -H mkdir -p /Users/stats/.dashboard /Users/stats/Library/LaunchAgents
   sudo install -o stats -m 644 "$temporary/dashboard.html" /Users/stats/.dashboard/dashboard.html
-  # At stats' login: one job collects the numbers, the other shows them in Chrome
-  for job in dashboard:/usr/local/bin/dashboard-kiosk dashboard-data:/usr/local/bin/dashboard-data; do
-    sudo -u stats -H tee "/Users/stats/Library/LaunchAgents/com.candix.${job%%:*}.plist" >/dev/null <<EOF
+  # At stats' login: dashboard-data collects the numbers, dashboard shows them in Chrome
+  for job in dashboard dashboard-data; do
+    fetch "$job.sh" "$temporary/$job"
+    sudo install -o root -g wheel -m 755 "$temporary/$job" "/usr/local/bin/$job"
+    sudo -u stats -H tee "/Users/stats/Library/LaunchAgents/com.candix.$job.plist" >/dev/null <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>KeepAlive</key><true/>
-  <key>Label</key><string>com.candix.${job%%:*}</string>
+  <key>Label</key><string>com.candix.$job</string>
   <key>ProgramArguments</key>
-  <array><string>${job#*:}</string></array>
+  <array><string>/usr/local/bin/$job</string></array>
 </dict>
 </plist>
 EOF
@@ -224,8 +222,8 @@ sudo tee /Library/LaunchDaemons/com.candix.skills.plist >/dev/null <<'EOF'
   <key>Label</key><string>com.candix.skills</string>
   <key>ProgramArguments</key>
   <array><string>/bin/sh</string><string>-c</string><string>cd /Users/dev/.candix-skills &amp;&amp; /usr/bin/git fetch -q https://github.com/candix-com/skills.git main &amp;&amp; /usr/bin/git checkout -q --force --detach FETCH_HEAD &amp;&amp; /usr/bin/git clean -qffdx</string></array>
-  <key>StandardErrorPath</key><string>/Users/dev/Library/Logs/candix-skills.log</string>
-  <key>StandardOutPath</key><string>/Users/dev/Library/Logs/candix-skills.log</string>
+  <key>StandardErrorPath</key><string>/Library/Logs/candix-skills.log</string>
+  <key>StandardOutPath</key><string>/Library/Logs/candix-skills.log</string>
   <key>StartInterval</key><integer>300</integer>
   <key>UserName</key><string>dev</string>
 </dict>

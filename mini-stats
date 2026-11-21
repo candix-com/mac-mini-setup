@@ -5,6 +5,7 @@ idle=$(/usr/bin/top -l 2 -n 0 -s 1 | /usr/bin/awk '/CPU usage/ {v=$7} END {sub("
 free=$(/usr/bin/memory_pressure -Q | /usr/bin/awk -F': ' '/free percentage/ {sub("%", "", $2); print $2}')
 shopt -s nullglob
 # A window past its reset, or one Claude Code dropped at its reset, is back to 0%
+# With no usage files, nullglob leaves jq no file to read, so </dev/null keeps it from reading stdin
 /usr/bin/jq -cn --argjson idle "$idle" --argjson free "$free" '{
   claude: (reduce inputs as $limits ({}; .[input_filename | capture("latest-(?<setup>[a-z]+)[.]json$").setup] =
     ($limits | [.five_hour, .seven_day]

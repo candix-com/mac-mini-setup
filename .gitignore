@@ -9,8 +9,8 @@
 # Files
 !/claude-usage-statusline.sh
 !/dashboard-data.sh
-!/dashboard-kiosk.sh
 !/dashboard.html
+!/dashboard.sh
 !/GITHUB.md
 !/laptop.sh
 !/mini-stats

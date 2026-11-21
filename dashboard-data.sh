@@ -23,10 +23,12 @@ while :; do
   done
   wait
 
+  # Only the first value counts, and only if it is an object: an older mini-stats line, null or no answer shows as
+  # down. name and up are merged last, so a Mac mini can't set its own.
   for machine in "${machines[@]}"; do
     /usr/bin/jq -nc --arg name "$machine" 'try (input | objects + {name: $name, up: true}) // {name: $name, up: false}' \
       "$temporary/$machine"
-  done | /usr/bin/jq -sr '"window.FLEET = \({machines: ., time: (now | floor)});"' >"$output.tmp" &&
+  done | /usr/bin/jq -sr '"window.FLEET = \({machines: ., timeSeconds: (now | floor)});"' >"$output.tmp" &&
     mv "$output.tmp" "$output"   # moved into place, so the page never loads half a file
   sleep 5
 done
