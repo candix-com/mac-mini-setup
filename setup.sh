@@ -101,11 +101,6 @@ sudo install -o root -g wheel -m 755 "$temporary/mini-stats" /usr/local/bin/mini
 # dev saves its Claude usage here for mini-stats. Made as dev, so root never writes through a path dev controls.
 sudo -u dev mkdir -p -m 755 /Users/Shared/claude-usage
 if [[ $number == 1 ]]; then
-  # The quarantine makes Chrome's first start ask a question, with no keyboard at the dashboard to answer it.
-  # Removing it skips Gatekeeper, so this runs Gatekeeper's check first and checks that the app is Google's.
-  spctl --assess --type execute "/Applications/Google Chrome.app"
-  codesign --verify -R='anchor apple generic and certificate leaf[subject.OU] = "EQHXZ8M8AV"' "/Applications/Google Chrome.app"
-  sudo xattr -rd com.apple.quarantine "/Applications/Google Chrome.app"
   fetch dashboard.html "$temporary/dashboard.html"
   sudo -u stats -H mkdir -p /Users/stats/.dashboard /Users/stats/Library/LaunchAgents
   sudo install -o stats -m 644 "$temporary/dashboard.html" /Users/stats/.dashboard/dashboard.html
